@@ -22,7 +22,7 @@ def load_config():
     setup_environment()
 
     try:
-        from .config_8080 import get_config_8080
+        from config_8080 import get_config_8080
 
         # Set environment if not already set
         if "FASTAPI_ENV" not in os.environ:

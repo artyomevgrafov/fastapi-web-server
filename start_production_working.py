@@ -89,27 +89,48 @@ if not test_file.exists():
 app.mount("/static", StaticFiles(directory=str(STATIC_ROOT), html=True), name="static")
 
 # Prometheus metrics (optional)
+PROMETHEUS_AVAILABLE = False
+REQUEST_COUNT = None
+REQUEST_DURATION = None
+ACTIVE_REQUESTS = None
+CONTENT_TYPE_LATEST = "text/plain"
+
+
+def generate_latest(registry=None) -> bytes:
+    return b"Prometheus metrics not available"
+
+
 try:
     from prometheus_client import (
         Counter,
         Histogram,
         Gauge,
-        generate_latest,
-        CONTENT_TYPE_LATEST,
+        generate_latest as prometheus_generate_latest,
+        CONTENT_TYPE_LATEST as PROMETHEUS_CONTENT_TYPE,
     )
 
-    REQUEST_COUNT = Counter(
-        "http_requests_total",
-        "Total HTTP requests",
-        ["method", "endpoint", "status_code"],
-    )
-    REQUEST_DURATION = Histogram(
-        "http_request_duration_seconds", "HTTP request duration", ["method", "endpoint"]
-    )
-    ACTIVE_REQUESTS = Gauge("http_requests_active", "Active HTTP requests")
-    PROMETHEUS_AVAILABLE = True
+    # Initialize metrics only in main process to avoid duplication
+    import os
+
+    if os.environ.get("UVICORN_WORKER_CLASS") != "uvicorn.workers.UvicornWorker":
+        REQUEST_COUNT = Counter(
+            "http_requests_total",
+            "Total HTTP requests",
+            ["method", "endpoint", "status_code"],
+        )
+        REQUEST_DURATION = Histogram(
+            "http_request_duration_seconds",
+            "HTTP request duration",
+            ["method", "endpoint"],
+        )
+        ACTIVE_REQUESTS = Gauge("http_requests_active", "Active HTTP requests")
+        CONTENT_TYPE_LATEST = PROMETHEUS_CONTENT_TYPE
+        generate_latest = prometheus_generate_latest
+        PROMETHEUS_AVAILABLE = True
+        logger.info("Prometheus metrics initialized")
+    else:
+        logger.info("Prometheus metrics disabled in worker process")
 except ImportError:
-    PROMETHEUS_AVAILABLE = False
     logger.info("Prometheus client not available, metrics disabled")
 
 

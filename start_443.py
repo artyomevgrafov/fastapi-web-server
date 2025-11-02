@@ -51,7 +51,7 @@ def load_config():
     setup_environment()
 
     try:
-        from .config_443 import get_config_443
+        from config_443 import get_config_443
 
         # Set environment if not already set / Установка окружения если не установлено
         if "FASTAPI_ENV" not in os.environ:
