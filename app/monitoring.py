@@ -34,14 +34,12 @@ class AttackMonitor:
         self.log_dir.mkdir(exist_ok=True)
 
         # Attack statistics / Статистика атак
-        self.attack_stats: Dict[str, Union[int, defaultdict[str, int]]] = {
-            "total_attacks": 0,
-            "blocked_requests": 0,
-            "suspicious_requests": 0,
-            "rate_limit_hits": 0,
-            "ip_blocks": 0,
-            "attack_types": defaultdict(int),
-        }
+        self.total_attacks: int = 0
+        self.blocked_requests: int = 0
+        self.suspicious_requests: int = 0
+        self.rate_limit_hits: int = 0
+        self.ip_blocks: int = 0
+        self.attack_types: defaultdict[str, int] = defaultdict(int)
 
         # Recent attacks for analysis / Недавние атаки для анализа
         self.recent_attacks: deque[Dict[str, Any]] = deque(maxlen=1000)
@@ -133,10 +131,8 @@ class AttackMonitor:
         }
 
         # Update statistics / Обновить статистику
-        self.attack_stats["total_attacks"] = int(self.attack_stats["total_attacks"]) + 1
-        attack_types_dict = self.attack_stats["attack_types"]
-        if isinstance(attack_types_dict, defaultdict):
-            attack_types_dict[attack_type] += 1
+        self.total_attacks += 1
+        self.attack_types[attack_type] += 1
 
         # Update IP threat score / Обновить уровень угрозы IP
         self.ip_threat_scores[client_ip] += self._get_threat_score(attack_type)
@@ -165,9 +161,7 @@ class AttackMonitor:
         """
         Log a blocked request / Записать заблокированный запрос
         """
-        self.attack_stats["blocked_requests"] = (
-            int(self.attack_stats["blocked_requests"]) + 1
-        )
+        self.blocked_requests += 1
 
         blocked_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -187,9 +181,7 @@ class AttackMonitor:
         """
         Log a suspicious request / Записать подозрительный запрос
         """
-        self.attack_stats["suspicious_requests"] = (
-            int(self.attack_stats["suspicious_requests"]) + 1
-        )
+        self.suspicious_requests += 1
 
         suspicious_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -366,12 +358,19 @@ class AttackMonitor:
 
     def get_monitoring_stats(
         self,
-    ) -> Dict[str, Union[int, Dict[str, Union[int, defaultdict[str, int]]]]]:
+    ) -> Dict[str, Any]:
         """
         Get comprehensive monitoring statistics / Получить комплексную статистику мониторинга
         """
         return {
-            "attack_statistics": dict(self.attack_stats),
+            "attack_statistics": {
+                "total_attacks": self.total_attacks,
+                "blocked_requests": self.blocked_requests,
+                "suspicious_requests": self.suspicious_requests,
+                "rate_limit_hits": self.rate_limit_hits,
+                "ip_blocks": self.ip_blocks,
+                "attack_types": dict(self.attack_types),
+            },
             "recent_attacks_count": len(self.recent_attacks),
             "unique_attackers_tracked": len(self.ip_threat_scores),
             "high_threat_ips_count": len(self.get_high_threat_ips()),
