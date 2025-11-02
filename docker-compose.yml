@@ -60,5 +60,5 @@ services:
     restart: unless-stopped
 
 networks:
-  default:
-    name: fastapi-network
+  web-network:
+    driver: bridge

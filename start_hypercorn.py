@@ -15,7 +15,7 @@ sys.path.insert(0, str(app_dir))
 from hypercorn.config import Config
 from hypercorn.asyncio import serve
 import asyncio
-from app.config import server_config, security_config
+from app.config import server_config
 
 
 async def main():

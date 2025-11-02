@@ -7,43 +7,20 @@ import time
 import logging
 import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pathlib import Path
 from collections import defaultdict, deque
-from fastapi import Request
+from fastapi import Request, Response
 
 logger = logging.getLogger(__name__)
 
 
-# Prometheus metrics
-REQUEST_COUNT = Counter(
-    'http_requests_total',
-    'Total HTTP requests',
-    ['method', 'endpoint', 'status_code']
-)
-
-REQUEST_DURATION = Histogram(
-    'http_request_duration_seconds',
-    'HTTP request duration in seconds',
-    ['method', 'endpoint']
-)
-
-ACTIVE_REQUESTS = Gauge(
-    'http_requests_active',
-    'Active HTTP requests'
-)
-
-SECURITY_BLOCKED_REQUESTS = Counter(
-    'security_requests_blocked_total',
-    'Total requests blocked by security',
-    ['block_type']
-)
-
-ATTACK_DETECTED = Counter(
-    'security_attacks_detected_total',
-    'Total security attacks detected',
-    ['attack_type']
-)
+# Prometheus metrics (will be initialized after imports)
+REQUEST_COUNT = None
+REQUEST_DURATION = None
+ACTIVE_REQUESTS = None
+SECURITY_BLOCKED_REQUESTS = None
+ATTACK_DETECTED = None
 
 
 class AttackMonitor:
@@ -145,7 +122,7 @@ class AttackMonitor:
         Log an attack attempt / Записать попытку атаки
         """
         attack_entry = {
-            'timestamp': datetime.now().isoformat(),
+            "timestamp": datetime.now().isoformat(),
             "client_ip": client_ip,
             "attack_type": attack_type,
             "method": request.method,
@@ -311,14 +288,14 @@ class AttackMonitor:
         """
         cutoff_time = datetime.now() - timedelta(hours=time_window_hours)
 
-        recent_attacks = {}
+        recent_attacks = [
             attack
             for attack in self.recent_attacks
             if datetime.fromisoformat(attack["timestamp"]) > cutoff_time
         ]
 
         analysis = {
-            'time_window_hours': time_window_hours,
+            "time_window_hours": time_window_hours,
             "total_attacks": len(recent_attacks),
             "attack_types": defaultdict(int),
             "top_attackers": defaultdict(int),
@@ -345,20 +322,22 @@ class AttackMonitor:
 
         return analysis
 
-    def get_high_threat_ips(self, threshold: int = None) -> List[Dict[str, Any]]:
+    def get_high_threat_ips(
+        self, threshold: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
         """
         Get IPs with high threat scores / Получить IP с высокими уровнями угроз
         """
         if threshold is None:
-            threshold = self.config["threat_score_threshold"]
+            threshold = self.config.get("threat_score_threshold", 10)
 
         high_threat_ips = []
-        for ip, score in self.threat_scores.items():
+        for ip, score in self.ip_threat_scores.items():
             if score >= threshold:
-                high_threat_ips.append({
+                high_threat_ips.append(
                     {
                         "ip": ip,
-                        'threat_score': score,
+                        "threat_score": score,
                         "last_seen": self._get_last_attack_time(ip),
                     }
                 )
@@ -410,10 +389,12 @@ attack_monitor = AttackMonitor()
 
 def metrics_endpoint():
     """Prometheus metrics endpoint"""
-    return Response(
-        generate_latest(),
-        media_type=CONTENT_TYPE_LATEST
-    )
+    try:
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    except ImportError:
+        return Response("Prometheus metrics not available", status_code=501)
 
 
 class MetricsMiddleware:
@@ -421,6 +402,45 @@ class MetricsMiddleware:
 
     def __init__(self, app):
         self.app = app
+        self._initialize_metrics()
+
+    def _initialize_metrics(self):
+        """Initialize Prometheus metrics if available"""
+        try:
+            from prometheus_client import Counter, Histogram, Gauge
+
+            global \
+                REQUEST_COUNT, \
+                REQUEST_DURATION, \
+                ACTIVE_REQUESTS, \
+                SECURITY_BLOCKED_REQUESTS, \
+                ATTACK_DETECTED
+
+            if REQUEST_COUNT is None:
+                REQUEST_COUNT = Counter(
+                    "http_requests_total",
+                    "Total HTTP requests",
+                    ["method", "endpoint", "status_code"],
+                )
+                REQUEST_DURATION = Histogram(
+                    "http_request_duration_seconds",
+                    "HTTP request duration in seconds",
+                    ["method", "endpoint"],
+                )
+                ACTIVE_REQUESTS = Gauge("http_requests_active", "Active HTTP requests")
+                SECURITY_BLOCKED_REQUESTS = Counter(
+                    "security_requests_blocked_total",
+                    "Total requests blocked by security",
+                    ["block_type"],
+                )
+                ATTACK_DETECTED = Counter(
+                    "security_attacks_detected_total",
+                    "Total security attacks detected",
+                    ["attack_type"],
+                )
+        except ImportError:
+            # Prometheus not available, metrics will be disabled
+            pass
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -434,17 +454,23 @@ class MetricsMiddleware:
         if path == "/metrics":
             return await self.app(scope, receive, send)
 
-        ACTIVE_REQUESTS.inc()
+        if ACTIVE_REQUESTS:
+            ACTIVE_REQUESTS.inc()
 
         async def send_wrapper(message):
-            if message["type"] == "http.response.start":
+            if message["type"] == "http.response.start" and REQUEST_COUNT:
                 status_code = message["status"]
-                REQUEST_COUNT.labels(method=method, endpoint=path, status_code=status_code).inc()
-
+                REQUEST_COUNT.labels(
+                    method=method, endpoint=path, status_code=status_code
+                ).inc()
             await send(message)
 
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            ACTIVE_REQUESTS.dec()
-            REQUEST_DURATION.labels(method=method, endpoint=path).observe(time.time() - start_time)
+            if ACTIVE_REQUESTS:
+                ACTIVE_REQUESTS.dec()
+            if REQUEST_DURATION:
+                REQUEST_DURATION.labels(method=method, endpoint=path).observe(
+                    time.time() - start_time
+                )

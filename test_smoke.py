@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 
 # Add app directory to path
+sys.path.insert(0, str(Path(__file__).parent))
 sys.path.insert(0, str(Path(__file__).parent / "app"))
 
 
@@ -132,7 +133,7 @@ def test_config_loading():
     from app.config import server_config, security_config, features_config
 
     assert server_config.host == "0.0.0.0"
-    assert server_config.port == 8080
+    assert server_config.port == 443
     assert security_config.rate_limiting_enabled is True
     assert features_config.security_enabled is True
 
@@ -150,5 +151,6 @@ async def test_concurrent_requests(client):
 if __name__ == "__main__":
     # Run tests directly
     import subprocess
+    import sys
 
-    subprocess.run(["pytest", __file__, "-v"])
+    sys.exit(subprocess.run(["pytest", __file__, "-v"]).returncode)

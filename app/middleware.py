@@ -4,14 +4,9 @@ Production Middleware for Security and Performance
 """
 
 import time
-from typing import Dict, Optional
-from fastapi import Request
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
-
 import gzip
 from typing import Dict, Any, Optional
-from fastapi import Request
+from fastapi import Request, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Message

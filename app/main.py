@@ -5,8 +5,10 @@ from pathlib import Path
 import httpx
 import logging
 import hashlib
-import os
+
 from datetime import datetime, timezone
+
+from .monitoring import MetricsMiddleware, metrics_endpoint
 
 from .security import security_manager, setup_security
 from .monitoring import attack_monitor
@@ -41,7 +43,10 @@ app = FastAPI(
 setup_security(app)
 
 # Setup production middleware / Настройка производственного промежуточного ПО
-setup_production_middleware(app)
+_ = setup_production_middleware(app)
+
+# Add Prometheus metrics middleware
+_ = app.add_middleware(MetricsMiddleware)
 
 # Configuration / Конфигурация
 TARGET_SERVER = str(SERVER_CONFIG["target_server"])
@@ -185,7 +190,7 @@ async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> R
 
                 # Read file chunk
                 with open(file_path, "rb") as f:
-                    f.seek(start)
+                    _ = f.seek(start)
                     content = f.read(content_length)
 
                 headers = {
@@ -211,10 +216,10 @@ async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> R
 
     # Serve full file with ETag and caching headers
     headers = {
-        "accept-ranges": "bytes",
-        "etag": etag,
-        "last-modified": last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT"),
-        "cache-control": "public, max-age=3600",
+        "Accept-Ranges": "bytes",
+        "ETag": etag,
+        "Last-Modified": last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "Cache-Control": "public, max-age=3600",
     }
 
     return FileResponse(
@@ -247,19 +252,19 @@ async def proxy_query_routes(request: Request, path: str = ""):
 async def health_check():
     """Health check endpoint / Эндпоинт проверки состояния"""
     response = API_HEALTH_RESPONSE.copy()
-    response["features"]["static_serving"] = str(STATIC_ROOT.exists())
-    response["features"]["proxy_enabled"] = FEATURES["api_proxy_enabled"]
-    response["features"]["document_root"] = str(STATIC_ROOT)
-    response["features"]["backend_target"] = TARGET_SERVER
-    response["features"]["security_enabled"] = FEATURES["security_enabled"]
-    response["features"]["monitoring_enabled"] = FEATURES["monitoring_enabled"]
-    response["features"]["rate_limiting_enabled"] = FEATURES["rate_limiting_enabled"]
-    response["features"]["ip_blocking_enabled"] = FEATURES["ip_blocking_enabled"]
-    response["features"]["threat_detection_enabled"] = FEATURES[
-        "threat_detection_enabled"
-    ]
-    response["features"]["static_serving_enabled"] = FEATURES["static_serving_enabled"]
-    response["features"]["ssl_enabled"] = FEATURES["ssl_enabled"]
+    features = response["features"].copy()
+    features["static_serving"] = str(STATIC_ROOT.exists())
+    features["proxy_enabled"] = FEATURES["api_proxy_enabled"]
+    features["document_root"] = str(STATIC_ROOT)
+    features["backend_target"] = TARGET_SERVER
+    features["security_enabled"] = FEATURES["security_enabled"]
+    features["monitoring_enabled"] = FEATURES["monitoring_enabled"]
+    features["rate_limiting_enabled"] = FEATURES["rate_limiting_enabled"]
+    features["ip_blocking_enabled"] = FEATURES["ip_blocking_enabled"]
+    features["threat_detection_enabled"] = FEATURES["threat_detection_enabled"]
+    features["static_serving_enabled"] = FEATURES["static_serving_enabled"]
+    features["ssl_enabled"] = FEATURES["ssl_enabled"]
+    response["features"] = features
     return response
 
 
@@ -268,11 +273,13 @@ async def health_check():
 async def server_info():
     """Server information page / Страница информации о сервере"""
     response = API_SERVER_INFO.copy()
-    response["config"]["static_root"] = str(STATIC_ROOT)
-    response["config"]["backend_server"] = TARGET_SERVER
-    response["config"]["ssl_enabled"] = SERVER_CONFIG["ssl_enabled"]
-    response["config"]["security_enabled"] = FEATURES["security_enabled"]
-    response["config"]["timeout"] = str(SERVER_CONFIG["timeout"])
+    config = response["config"].copy()
+    config["static_root"] = str(STATIC_ROOT)
+    config["backend_server"] = TARGET_SERVER
+    config["ssl_enabled"] = SERVER_CONFIG["ssl_enabled"]
+    config["security_enabled"] = FEATURES["security_enabled"]
+    config["timeout"] = str(SERVER_CONFIG["timeout"])
+    response["config"] = config
     return response
 
 
@@ -295,6 +302,13 @@ async def monitoring_stats():
 async def attack_analysis(time_window_hours: int = 24):
     """Attack pattern analysis / Анализ паттернов атак"""
     return attack_monitor.analyze_attack_patterns(time_window_hours)
+
+
+# Prometheus metrics endpoint / Эндпоинт метрик Prometheus
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint / Эндпоинт метрик Prometheus"""
+    return metrics_endpoint()
 
 
 # High threat IPs endpoint / Эндпоинт IP с высокими угрозами

@@ -6,81 +6,77 @@ Configuration module using Pydantic Settings with environment variables support
 import os
 from typing import Dict, Set, List, Optional
 from pathlib import Path
-from pydantic import BaseSettings, Field, validator
-from pydantic.networks import AnyHttpUrl
+from pydantic import Field, validator
+from pydantic_settings import BaseSettings
+from pydantic import AnyUrl
 
 
 class SecurityConfig(BaseSettings):
     """Security configuration settings / Настройки конфигурации безопасности"""
 
     # IP blocking settings / Настройки блокировки IP
-    ip_blocking_enabled: bool = Field(default=True, env="IP_BLOCKING_ENABLED")
-    block_duration: int = Field(default=3600, env="BLOCK_DURATION")  # seconds / секунды
-    auto_block_suspicious: bool = Field(default=True, env="AUTO_BLOCK_SUSPICIOUS")
-    max_blocked_ips: int = Field(default=1000, env="MAX_BLOCKED_IPS")
+    ip_blocking_enabled: bool = Field(default=True)
+    block_duration: int = Field(default=3600)  # seconds / секунды
+    auto_block_suspicious: bool = Field(default=True)
+    max_blocked_ips: int = Field(default=1000)
 
     # Rate limiting settings / Настройки ограничения скорости
-    rate_limiting_enabled: bool = Field(default=True, env="RATE_LIMITING_ENABLED")
-    max_requests_per_minute: int = Field(default=100, env="MAX_REQUESTS_PER_MINUTE")
-    max_requests_per_hour: int = Field(default=1000, env="MAX_REQUESTS_PER_HOUR")
-    burst_protection: bool = Field(default=True, env="BURST_PROTECTION")
-    burst_window: int = Field(default=10, env="BURST_WINDOW")  # seconds / секунды
-    burst_max_requests: int = Field(default=50, env="BURST_MAX_REQUESTS")
+    rate_limiting_enabled: bool = Field(default=True)
+    max_requests_per_minute: int = Field(default=100)
+    max_requests_per_hour: int = Field(default=1000)
+    burst_protection: bool = Field(default=True)
+    burst_window: int = Field(default=10)  # seconds / секунды
+    burst_max_requests: int = Field(default=50)
 
     # Threat detection settings / Настройки обнаружения угроз
-    threat_detection_enabled: bool = Field(default=True, env="THREAT_DETECTION_ENABLED")
-    suspicious_request_threshold: int = Field(
-        default=5, env="SUSPICIOUS_REQUEST_THRESHOLD"
-    )
-    enable_attack_analysis: bool = Field(default=True, env="ENABLE_ATTACK_ANALYSIS")
-    threat_score_threshold: int = Field(default=10, env="THREAT_SCORE_THRESHOLD")
-    auto_block_high_threat: bool = Field(default=True, env="AUTO_BLOCK_HIGH_THREAT")
+    threat_detection_enabled: bool = Field(default=True)
+    suspicious_request_threshold: int = Field(default=5)
+    enable_attack_analysis: bool = Field(default=True)
+    threat_score_threshold: int = Field(default=10)
+    auto_block_high_threat: bool = Field(default=True)
 
     # Monitoring and logging settings / Настройки мониторинга и логирования
-    enable_detailed_logging: bool = Field(default=True, env="ENABLE_DETAILED_LOGGING")
-    log_rotation_hours: int = Field(default=24, env="LOG_ROTATION_HOURS")
-    max_log_files: int = Field(default=7, env="MAX_LOG_FILES")
-    alert_on_major_attacks: bool = Field(default=True, env="ALERT_ON_MAJOR_ATTACKS")
-    enable_real_time_alerts: bool = Field(default=False, env="ENABLE_REAL_TIME_ALERTS")
+    enable_detailed_logging: bool = Field(default=True)
+    log_rotation_hours: int = Field(default=24)
+    max_log_files: int = Field(default=7)
+    alert_on_major_attacks: bool = Field(default=True)
+    enable_real_time_alerts: bool = Field(default=False)
 
     # Advanced security settings / Расширенные настройки безопасности
-    enable_geo_blocking: bool = Field(default=False, env="ENABLE_GEO_BLOCKING")
-    enable_tor_blocking: bool = Field(default=True, env="ENABLE_TOR_BLOCKING")
-    enable_proxy_blocking: bool = Field(default=True, env="ENABLE_PROXY_BLOCKING")
-    enable_bot_protection: bool = Field(default=True, env="ENABLE_BOT_PROTECTION")
+    enable_geo_blocking: bool = Field(default=False)
+    enable_tor_blocking: bool = Field(default=True)
+    enable_proxy_blocking: bool = Field(default=True)
+    enable_bot_protection: bool = Field(default=True)
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+    }
 
 
 class ServerConfig(BaseSettings):
     """Server configuration settings / Настройки конфигурации сервера"""
 
-    target_server: AnyHttpUrl = Field(
-        default="http://127.0.0.1:8097", env="TARGET_SERVER"
-    )
-    timeout: float = Field(default=30.0, env="TIMEOUT")
-    static_root: Path = Field(
-        default=Path("C:/server/httpd/data/htdocs"), env="STATIC_ROOT"
-    )
-    ssl_enabled: bool = Field(default=True, env="SSL_ENABLED")
-    ssl_cert_file: Optional[Path] = Field(default=None, env="SSL_CERT_FILE")
-    ssl_key_file: Optional[Path] = Field(default=None, env="SSL_KEY_FILE")
-    host: str = Field(default="0.0.0.0", env="HOST")
-    port: int = Field(default=443, env="PORT")
+    target_server: AnyUrl = Field(default="http://127.0.0.1:8097")
+    timeout: float = Field(default=30.0)
+    static_root: Path = Field(default=Path("C:/server/httpd/data/htdocs"))
+    ssl_enabled: bool = Field(default=True)
+    ssl_cert_file: Optional[Path] = Field(default=None)
+    ssl_key_file: Optional[Path] = Field(default=None)
+    host: str = Field(default="0.0.0.0")
+    port: int = Field(default=443)
 
     # HTTP/2 and performance settings / Настройки HTTP/2 и производительности
-    http2_enabled: bool = Field(default=True, env="HTTP2_ENABLED")
-    workers: int = Field(default=4, env="WORKERS")
-    max_requests: int = Field(default=1000, env="MAX_REQUESTS")
-    max_requests_jitter: int = Field(default=100, env="MAX_REQUESTS_JITTER")
+    http2_enabled: bool = Field(default=True)
+    workers: int = Field(default=4)
+    max_requests: int = Field(default=1000)
+    max_requests_jitter: int = Field(default=100)
 
     # Compression settings / Настройки сжатия
-    gzip_enabled: bool = Field(default=True, env="GZIP_ENABLED")
-    gzip_min_size: int = Field(default=500, env="GZIP_MIN_SIZE")
-    brotli_enabled: bool = Field(default=False, env="BROTLI_ENABLED")
+    gzip_enabled: bool = Field(default=True)
+    gzip_min_size: int = Field(default=500)
+    brotli_enabled: bool = Field(default=False)
 
     @validator("static_root", pre=True)
     def validate_static_root(cls, v):
@@ -96,23 +92,22 @@ class ServerConfig(BaseSettings):
             return Path(v)
         return v
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+    }
 
 
 class LoggingConfig(BaseSettings):
     """Logging configuration settings / Настройки конфигурации логирования"""
 
-    level: str = Field(default="INFO", env="LOG_LEVEL")
-    format: str = Field(
-        default="%(asctime)s - %(name)s - %(levelname)s - %(message)s", env="LOG_FORMAT"
-    )
-    date_format: str = Field(default="%Y-%m-%d %H:%M:%S", env="LOG_DATE_FORMAT")
-    log_dir: Path = Field(default=Path("logs"), env="LOG_DIR")
-    max_log_size: str = Field(default="10MB", env="MAX_LOG_SIZE")
-    backup_count: int = Field(default=5, env="BACKUP_COUNT")
+    level: str = Field(default="INFO")
+    format: str = Field(default="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    date_format: str = Field(default="%Y-%m-%d %H:%M:%S")
+    log_dir: Path = Field(default=Path("logs"))
+    max_log_size: str = Field(default="10MB")
+    backup_count: int = Field(default=5)
 
     @validator("log_dir", pre=True)
     def validate_log_dir(cls, v):
@@ -121,30 +116,32 @@ class LoggingConfig(BaseSettings):
             return Path(v)
         return v
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+    }
 
 
 class FeaturesConfig(BaseSettings):
     """Feature flags configuration / Конфигурация флагов функций"""
 
-    security_enabled: bool = Field(default=True, env="SECURITY_ENABLED")
-    monitoring_enabled: bool = Field(default=True, env="MONITORING_ENABLED")
-    rate_limiting_enabled: bool = Field(default=True, env="RATE_LIMITING_ENABLED")
-    ip_blocking_enabled: bool = Field(default=True, env="IP_BLOCKING_ENABLED")
-    threat_detection_enabled: bool = Field(default=True, env="THREAT_DETECTION_ENABLED")
-    static_serving_enabled: bool = Field(default=True, env="STATIC_SERVING_ENABLED")
-    api_proxy_enabled: bool = Field(default=True, env="API_PROXY_ENABLED")
-    ssl_enabled: bool = Field(default=True, env="SSL_ENABLED")
-    http2_enabled: bool = Field(default=True, env="HTTP2_ENABLED")
-    gzip_enabled: bool = Field(default=True, env="GZIP_ENABLED")
+    security_enabled: bool = Field(default=True)
+    monitoring_enabled: bool = Field(default=True)
+    rate_limiting_enabled: bool = Field(default=True)
+    ip_blocking_enabled: bool = Field(default=True)
+    threat_detection_enabled: bool = Field(default=True)
+    static_serving_enabled: bool = Field(default=True)
+    api_proxy_enabled: bool = Field(default=True)
+    ssl_enabled: bool = Field(default=True)
+    http2_enabled: bool = Field(default=True)
+    gzip_enabled: bool = Field(default=True)
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": False,
+    }
 
 
 # Global configuration instances / Глобальные экземпляры конфигурации
@@ -296,10 +293,10 @@ def get_config() -> Dict:
     Get complete configuration as dictionary / Получить полную конфигурацию в виде словаря
     """
     return {
-        "security": security_config.dict(),
-        "server": server_config.dict(),
-        "logging": logging_config.dict(),
-        "features": features_config.dict(),
+        "security": security_config.model_dump(),
+        "server": server_config.model_dump(),
+        "logging": logging_config.model_dump(),
+        "features": features_config.model_dump(),
         "patterns": SUSPICIOUS_PATTERNS,
         "malicious_ranges": MALICIOUS_RANGES,
         "whitelist": WHITELIST,
@@ -319,7 +316,7 @@ def update_config_from_env():
 
 
 # Backward compatibility aliases / Псевдонимы для обратной совместимости
-SECURITY_CONFIG = security_config.dict()
-SERVER_CONFIG = server_config.dict()
-LOGGING_CONFIG = logging_config.dict()
-FEATURES = features_config.dict()
+SECURITY_CONFIG = security_config.model_dump()
+SERVER_CONFIG = server_config.model_dump()
+LOGGING_CONFIG = logging_config.model_dump()
+FEATURES = features_config.model_dump()

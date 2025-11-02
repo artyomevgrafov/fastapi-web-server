@@ -42,7 +42,7 @@ check_command docker-compose
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 echo "📝 Python version: $PYTHON_VERSION"
 
-if [ "$(echo "$PYTHON_VERSION >= 3.8" | bc -l)" -eq 1 ]; then
+if python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
     echo "✅ Python version compatible"
 else
     echo "❌ Python 3.8+ required"
@@ -57,7 +57,7 @@ mkdir -p logs certs data/htdocs static
 # Install Python dependencies
 echo ""
 echo "📦 Installing Python dependencies..."
-pip3 install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 # Generate self-signed SSL certificates if not present
 echo ""
@@ -68,8 +68,10 @@ if [ ! -f "certs/cert.pem" ] || [ ! -f "certs/key.pem" ]; then
         -keyout certs/key.pem \
         -out certs/cert.pem \
         -days 365 -nodes \
-        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" 2>/dev/null || \
-    echo "⚠️  OpenSSL not available - creating placeholder certificates"
+        -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        echo "⚠️  OpenSSL not available - creating placeholder certificates"
+    fi
 
     if [ ! -f "certs/key.pem" ]; then
         echo "PLACEHOLDER PRIVATE KEY - REPLACE IN PRODUCTION" > certs/key.pem
@@ -159,6 +161,7 @@ echo "2) Hypercorn with HTTP/2"
 echo "3) Uvicorn (Development)"
 echo "4) Skip startup"
 read -p "Enter choice [1-4]: " choice
+choice=${choice:-4}
 
 case $choice in
     1)
@@ -198,11 +201,11 @@ case $choice in
 esac
 
 # Health check
-if [ "$choice" -ne 4 ]; then
+if [ "$choice" != "4" ]; then
     echo ""
     echo "🔍 Running health check..."
     sleep 5
-    if curl -f http://localhost:8080/health > /dev/null 2>&1; then
+    if command -v curl >/dev/null 2>&1 && curl -f http://localhost:8080/health > /dev/null 2>&1; then
         echo "✅ Server is healthy and responding"
     else
         echo "⚠️  Server health check failed - check logs for details"
