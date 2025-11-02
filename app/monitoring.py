@@ -7,7 +7,7 @@ import time
 import logging
 import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any, Union, TYPE_CHECKING
 from pathlib import Path
 from collections import defaultdict, deque
 from fastapi import Request, Response
@@ -402,18 +402,23 @@ attack_monitor = AttackMonitor()
 
 def metrics_endpoint():
     """Prometheus metrics endpoint"""
-    try:
-        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-
-        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)  # type: ignore
-    except ImportError:
-        # Fallback if prometheus_client is not available
-        content_type_latest = "text/plain"
+    if TYPE_CHECKING:
+        # Type stubs for prometheus_client
+        CONTENT_TYPE_LATEST = "text/plain"  # type: ignore
 
         def generate_latest(registry=None):  # type: ignore
             return b"Prometheus metrics not available"
+    else:
+        try:
+            from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        except ImportError:
+            # Fallback if prometheus_client is not available
+            CONTENT_TYPE_LATEST = "text/plain"
 
-        return Response(generate_latest(), media_type=content_type_latest)  # type: ignore
+            def generate_latest(registry=None):  # type: ignore
+                return b"Prometheus metrics not available"
+
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)  # type: ignore
 
 
 class MetricsMiddleware:
@@ -424,70 +429,66 @@ class MetricsMiddleware:
         self._initialize_metrics()
 
     def _initialize_metrics(self):
-        """Initialize Prometheus metrics if available"""
-        try:
+        """Initialize Prometheus metrics"""
+        if TYPE_CHECKING:
+            # Type stubs for prometheus_client
+            class MockMetric:
+                def __init__(self, *args, **kwargs):  # type: ignore
+                    pass
+
+                def labels(self, **kwargs):  # type: ignore
+                    return self
+
+                def inc(self, amount: int = 1):  # type: ignore
+                    pass
+
+                def dec(self, amount: int = 1):  # type: ignore
+                    pass
+
+                def observe(self, amount: float):  # type: ignore
+                    pass
+
+            Counter = MockMetric  # type: ignore
+            Histogram = MockMetric  # type: ignore
+            Gauge = MockMetric  # type: ignore
+        else:
             try:
                 from prometheus_client import Counter, Histogram, Gauge
             except ImportError:
                 # Mock metrics if prometheus_client is not available
-                class MockMetric:
-                    def __init__(self, *args, **kwargs):  # type: ignore
-                        pass
-
-                    def labels(self, **kwargs):  # type: ignore
-                        return self
-
-                    def inc(self, amount: int = 1):  # type: ignore
-                        pass
-
-                    def dec(self, amount: int = 1):  # type: ignore
-                        pass
-
-                    def observe(self, amount: float):  # type: ignore
-                        pass
-
                 Counter = MockMetric  # type: ignore
                 Histogram = MockMetric  # type: ignore
                 Gauge = MockMetric  # type: ignore
 
-            global \
-                request_count, \
-                request_duration, \
-                active_requests, \
-                security_blocked_requests, \
-                attack_detected
+        global \
+            request_count, \
+            request_duration, \
+            active_requests, \
+            security_blocked_requests, \
+            attack_detected
 
-            if request_count is None:
-                global \
-                    request_count, \
-                    request_duration, \
-                    active_requests, \
-                    security_blocked_requests, \
-                    attack_detected
-                request_count = Counter(
-                    "http_requests_total",
-                    "Total HTTP requests",
-                    ["method", "endpoint", "status_code"],
-                )
-                request_duration = Histogram(
-                    "http_request_duration_seconds",
-                    "HTTP request duration in seconds",
-                    ["method", "endpoint"],
-                )
-                active_requests = Gauge("http_requests_active", "Active HTTP requests")
-                security_blocked_requests = Counter(
-                    "security_requests_blocked_total",
-                    "Total requests blocked by security",
-                    ["block_type"],
-                )
-                attack_detected = Counter(
-                    "security_attacks_detected_total",
-                    "Total security attacks detected",
-                    ["attack_type"],
-                )
-        except ImportError:
-            # Prometheus not available, metrics will be disabled
-            pass
+        if request_count is None:
+            request_count = Counter(
+                "http_requests_total",
+                "Total HTTP requests",
+                ["method", "endpoint", "status_code"],
+            )
+            request_duration = Histogram(
+                "http_request_duration_seconds",
+                "HTTP request duration in seconds",
+                ["method", "endpoint"],
+            )
+            active_requests = Gauge("http_requests_active", "Active HTTP requests")
+            security_blocked_requests = Counter(
+                "security_requests_blocked_total",
+                "Total requests blocked by security",
+                ["block_type"],
+            )
+            attack_detected = Counter(
+                "security_attacks_detected_total",
+                "Total security attacks detected",
+                ["attack_type"],
+            )
 
     async def __call__(
         self, scope: Dict[str, Any], receive: Any, send: Any
