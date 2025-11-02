@@ -8,7 +8,7 @@ import sys
 import subprocess
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import json
 import argparse
 
@@ -21,7 +21,7 @@ class ProductionDeployer:
         self.base_dir = Path(__file__).parent
         self.deployment_config = self._load_deployment_config()
 
-    def _load_deployment_config(self) -> Dict:
+    def _load_deployment_config(self) -> Dict[str, Any]:
         """Load deployment configuration"""
         return {
             "docker": {
@@ -532,7 +532,7 @@ ENABLE_DETAILED_LOGGING=true
             print(f"❌ Performance tests error: {e}")
             return False
 
-    def generate_deployment_report(self) -> Dict:
+    def generate_deployment_report(self) -> Dict[str, Any]:
         """Generate deployment report"""
         return {
             "deployment": {

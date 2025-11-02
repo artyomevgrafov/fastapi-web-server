@@ -5,7 +5,7 @@ Security module for IP blocking and threat detection
 
 import time
 import logging
-from typing import Dict, Set, List, Optional
+from typing import Dict, Set, List, Optional, Any
 from ipaddress import ip_address, IPv4Address
 from collections import defaultdict
 from fastapi import Request, HTTPException, status, FastAPI
@@ -308,7 +308,7 @@ class SecurityManager:
         # Fallback to client host / Резервный вариант - хост клиента
         return request.client.host if request.client else "unknown"
 
-    def get_security_stats(self) -> Dict:
+    def get_security_stats(self) -> Dict[str, Any]:
         """
         Get security statistics / Получить статистику безопасности
         """

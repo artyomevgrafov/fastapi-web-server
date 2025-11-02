@@ -406,21 +406,19 @@ def metrics_endpoint():
         # Type stubs for prometheus_client
         CONTENT_TYPE_LATEST = "text/plain"  # type: ignore
 
-        def _generate_latest(registry=None):  # type: ignore
+        def generate_latest(registry=None):  # type: ignore
             return b"Prometheus metrics not available"
     else:
         try:
             from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-
-            _generate_latest = generate_latest
         except ImportError:
             # Fallback if prometheus_client is not available
             CONTENT_TYPE_LATEST = "text/plain"
 
-            def _generate_latest(registry=None):  # type: ignore
+            def generate_latest(registry=None):  # type: ignore
                 return b"Prometheus metrics not available"
 
-    return Response(_generate_latest(), media_type=CONTENT_TYPE_LATEST)  # type: ignore
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)  # type: ignore
 
 
 class MetricsMiddleware:

@@ -11,7 +11,7 @@ viewing blocked IPs, and analyzing attack patterns.
 import argparse
 import json
 import sys
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from pathlib import Path
 import requests
 import time
@@ -28,7 +28,7 @@ class SecurityManagerCLI:
         self.base_url = base_url
         self.session = requests.Session()
 
-    def get_security_stats(self) -> Dict:
+    def get_security_stats(self) -> Dict[str, Any]:
         """Get security statistics / Получить статистику безопасности"""
         try:
             response = self.session.get(f"{self.base_url}/security/stats", timeout=10)
@@ -38,7 +38,7 @@ class SecurityManagerCLI:
             print(f"Error getting security stats: {e}")
             return {}
 
-    def get_monitoring_stats(self) -> Dict:
+    def get_monitoring_stats(self) -> Dict[str, Any]:
         """Get monitoring statistics / Получить статистику мониторинга"""
         try:
             response = self.session.get(f"{self.base_url}/monitoring/stats", timeout=10)
@@ -48,7 +48,7 @@ class SecurityManagerCLI:
             print(f"Error getting monitoring stats: {e}")
             return {}
 
-    def get_attack_analysis(self, hours: int = 24) -> Dict:
+    def get_attack_analysis(self, hours: int = 24) -> Dict[str, Any]:
         """Get attack analysis / Получить анализ атак"""
         try:
             response = self.session.get(
@@ -61,7 +61,7 @@ class SecurityManagerCLI:
             print(f"Error getting attack analysis: {e}")
             return {}
 
-    def get_high_threat_ips(self, threshold: int = None) -> List[Dict]:
+    def get_high_threat_ips(self, threshold: int = None) -> List[Dict[str, Any]]:
         """Get high threat IPs / Получить IP с высокими угрозами"""
         try:
             url = f"{self.base_url}/monitoring/high-threat-ips"

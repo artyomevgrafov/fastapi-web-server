@@ -10,7 +10,7 @@ import statistics
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 import httpx
 import psutil
 
@@ -412,7 +412,7 @@ class AutomatedBenchmark:
         else:
             return "Needs Improvement"
 
-    def _generate_apache_comparison(self) -> Dict:
+    def _generate_apache_comparison(self) -> Dict[str, Any]:
         """Generate Apache comparison data"""
         apache_benchmarks = {
             "static_files": {"requests_per_second": 3800, "avg_latency_ms": 3.2},
