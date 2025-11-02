@@ -1,18 +1,30 @@
-version: '3.8'
+version: "3.8"
 
 services:
   fastapi-server:
     build: .
+    container_name: fastapi-web-server
     ports:
       - "80:8080"
       - "443:443"
     environment:
       - TARGET_SERVER=http://backend:8097
       - STATIC_ROOT=/app/static
-      - SSL_ENABLED=false
+      - SSL_ENABLED=true
+      - SSL_CERT_FILE=/app/certs/cert.pem
+      - SSL_KEY_FILE=/app/certs/key.pem
+      - UVICORN_WORKERS=4
+      - UVICORN_HOST=0.0.0.0
+      - UVICORN_PORT=8080
+      - LOG_LEVEL=INFO
+      - SECURITY_ENABLED=true
+      - RATE_LIMITING_ENABLED=true
+      - IP_BLOCKING_ENABLED=true
     volumes:
       - ./static:/app/static
       - ./logs:/app/logs
+      - ./certs:/app/certs
+      - ./data/htdocs:/app/data/htdocs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
@@ -20,12 +32,109 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - web-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.fastapi.rule=Host(`localhost`)"
+      - "traefik.http.routers.fastapi.entrypoints=web,websecure"
+
+  # Nginx reverse proxy for additional features
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: nginx-reverse-proxy
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./static:/usr/share/nginx/html:ro
+    depends_on:
+      - fastapi-server
+    restart: unless-stopped
+    networks:
+      - web-network
 
   # Example backend service
   backend:
     image: nginx:alpine
+    container_name: backend-service
     ports:
       - "8097:80"
     volumes:
-      - ./backend-static:/usr/share/nginx/html
+      - ./backend-static:/usr/share/nginx/html:ro
+    restart: unless-stovern
+    networks:
+      - web-network
+
+  # Traefik for advanced routing and SSL
+  traefik:
+    image: traefik:v2.9
+    container_name: traefik
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8081:8080" # Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ./traefik/ssl:/etc/traefik/ssl:ro
+    networks:
+      - web-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`traefik.localhost`)"
+      - "traefik.http.routers.api.service=api@internal"
+
+  # Monitoring with Prometheus and Grafana
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/etc/prometheus/console_libraries"
+      - "--web.console.templates=/etc/prometheus/consoles"
+      - "--storage.tsdb.retention.time=200h"
+      - "--web.enable-lifecycle"
     restart: unless-stopped
+    networks:
+      - web-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    networks:
+      - web-network
+    depends_on:
+      - prometheus
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  web-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

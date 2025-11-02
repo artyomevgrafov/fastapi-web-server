@@ -1,0 +1,62 @@
+[Unit]
+Description=FastAPI Web Server - Apache Replacement
+Documentation=https://github.com/yourusername/fastapi-web-server
+After=network.target
+Wants=network.target
+
+[Service]
+Type=exec
+User=appuser
+Group=appuser
+WorkingDirectory=/opt/fastapi-web-server
+Environment=PATH=/opt/fastapi-web-server/venv/bin
+Environment=PYTHONPATH=/opt/fastapi-web-server
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/fastapi-web-server/logs /opt/fastapi-web-server/data
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+LockPersonality=yes
+
+# Process management
+ExecStart=/opt/fastapi-web-server/venv/bin/uvicorn app.main:app \
+    --host 0.0.0.0 \
+    --port 8080 \
+    --workers 4 \
+    --http httptools \
+    --loop uvloop \
+    --proxy-headers \
+    --forwarded-allow-ips "*" \
+    --access-log \
+    --log-level info
+
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StartLimitInterval=100
+StartLimitBurst=10
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=512M
+CPUQuota=100%
+
+# Standard output and error
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fastapi-web-server
+
+[Install]
+WantedBy=multi-user.target
