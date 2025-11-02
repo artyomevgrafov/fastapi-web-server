@@ -50,7 +50,7 @@ def load_config():
     setup_environment()
 
     try:
-        from config_443 import get_config_443
+        from .config_443 import get_config_443
 
         # Set environment if not already set / Установка окружения если не установлено
         if "FASTAPI_ENV" not in os.environ:
@@ -134,9 +134,9 @@ def check_ssl_certificates():
     return True
 
 
-def build_uvicorn_config(config):
+def build_uvicorn_config(config) -> dict[str, str | int | bool]:
     """Build uvicorn configuration / Создание конфигурации uvicorn"""
-    uvicorn_config = {
+    uvicorn_config: dict[str, str | int | bool] = {
         "host": config.HOST,
         "port": config.PORT,
         "reload": config.RELOAD,
@@ -228,9 +228,9 @@ def main():
         print("-" * 70)
 
         if uvicorn_config.get("reload"):
-            uvicorn.run("app.main:app", **uvicorn_config)
+            uvicorn.run("app.main:app", **uvicorn_config)  # type: ignore[arg-type]
         else:
-            uvicorn.run(app, **uvicorn_config)
+            uvicorn.run(app, **uvicorn_config)  # type: ignore[arg-type]
     except KeyboardInterrupt:
         print("\n" + SERVER_STOPPED)
     except Exception as e:

@@ -54,9 +54,9 @@ def import_app():
         sys.exit(1)
 
 
-def build_uvicorn_config(config):
+def build_uvicorn_config(config) -> dict[str, str | int | bool]:
     """Build uvicorn configuration"""
-    uvicorn_config = {
+    uvicorn_config: dict[str, str | int | bool] = {
         "host": config.HOST,
         "port": config.PORT,
         "reload": config.RELOAD,
@@ -163,9 +163,9 @@ def main():
     try:
         print(f"🎯 Starting server on {config.HOST}:{config.PORT}...")
         if uvicorn_config.get("reload"):
-            uvicorn.run("app.main:app", **uvicorn_config)
+            uvicorn.run("app.main:app", **uvicorn_config)  # type: ignore[arg-type]
         else:
-            uvicorn.run(app, **uvicorn_config)
+            uvicorn.run(app, **uvicorn_config)  # type: ignore[arg-type]
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
     except Exception as e:

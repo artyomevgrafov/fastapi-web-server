@@ -22,7 +22,7 @@ def load_config():
     setup_environment()
 
     try:
-        from config import get_config
+        from .config import get_config
 
         # Set environment if not already set
         if "FASTAPI_ENV" not in os.environ:
@@ -43,7 +43,7 @@ def setup_ssl(config: Any) -> bool:
         return False
 
     try:
-        from ssl_utils import setup_ssl_certificates
+        from .ssl_utils import setup_ssl_certificates
 
         print("🔐 Setting up SSL certificates...")
         success, message = setup_ssl_certificates(
