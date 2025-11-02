@@ -4,7 +4,7 @@ from fastapi.responses import FileResponse, Response
 from pathlib import Path
 import httpx
 import logging
-from typing import Dict, Any
+
 from .security import security_manager, setup_security
 from .monitoring import attack_monitor
 from .config import SERVER_CONFIG, FEATURES
@@ -12,36 +12,9 @@ from .messages import (
     SERVER_TITLE,
     SERVER_DESCRIPTION,
     SERVER_VERSION,
-    CONFIG_LOAD_ERROR,
-    SSL_CERT_ERROR,
-    SSL_CERT_NOT_FOUND,
-    SSL_KEY_NOT_FOUND,
-    SSL_CERT_EMPTY,
-    SSL_KEY_EMPTY,
-    SSL_CERTS_FOUND,
-    STARTING_SERVER,
-    ADMIN_PRIVILEGES_REQUIRED,
-    PORT_IN_USE,
-    SSL_CHECK_FAILED,
-    STARTING_PRODUCTION,
-    APACHE_STOP_WARNING,
-    SERVER_STOPPED,
-    SERVER_ERROR,
     PROXY_ERROR,
     BACKEND_UNAVAILABLE,
     BACKEND_TIMEOUT,
-    FEATURE_WEB_SERVER,
-    FEATURE_SSL,
-    FEATURE_STATIC,
-    FEATURE_API,
-    FEATURE_DOCS,
-    FEATURE_APACHE_REPLACE,
-    STATUS_HEALTHY,
-    STATUS_RUNNING,
-    STATUS_ACTIVE,
-    STATUS_ENABLED,
-    STATUS_DISABLED,
-    IMPORT_ERROR,
     FILE_NOT_FOUND,
     LOG_PROXYING_API,
     LOG_PROXYING_QUERY,
@@ -87,8 +60,8 @@ async def proxy_request(request: Request, path: str = ""):
 
         # Prepare headers / Подготовка заголовков
         headers = dict(request.headers)
-        headers.pop("host", None)
-        headers.pop("content-length", None)
+        _ = headers.pop("host", None)
+        _ = headers.pop("content-length", None)
 
         # Read request body / Чтение тела запроса
         body = await request.body()
@@ -105,7 +78,7 @@ async def proxy_request(request: Request, path: str = ""):
 
             # Return response from target server / Возврат ответа от целевого сервера
             response_headers = dict(response.headers)
-            response_headers.pop("content-length", None)
+            _ = response_headers.pop("content-length", None)
 
             content = response.content
             if response.headers.get("content-type", "").startswith("application/json"):
@@ -176,23 +149,19 @@ async def proxy_query_routes(request: Request, path: str = ""):
 async def health_check():
     """Health check endpoint / Эндпоинт проверки состояния"""
     response = API_HEALTH_RESPONSE.copy()
-    response["features"]["static_serving"] = Path(STATIC_ROOT).exists()
-    response["features"]["proxy_enabled"] = bool(FEATURES["api_proxy_enabled"])
+    response["features"]["static_serving"] = str(STATIC_ROOT.exists())
+    response["features"]["proxy_enabled"] = FEATURES["api_proxy_enabled"]
     response["features"]["document_root"] = str(STATIC_ROOT)
-    response["features"]["backend_target"] = str(TARGET_SERVER)
-    response["features"]["security_enabled"] = bool(FEATURES["security_enabled"])
-    response["features"]["monitoring_enabled"] = bool(FEATURES["monitoring_enabled"])
-    response["features"]["rate_limiting_enabled"] = bool(
-        FEATURES["rate_limiting_enabled"]
-    )
-    response["features"]["ip_blocking_enabled"] = bool(FEATURES["ip_blocking_enabled"])
-    response["features"]["threat_detection_enabled"] = bool(
-        FEATURES["threat_detection_enabled"]
-    )
-    response["features"]["static_serving_enabled"] = bool(
-        FEATURES["static_serving_enabled"]
-    )
-    response["features"]["ssl_enabled"] = bool(FEATURES["ssl_enabled"])
+    response["features"]["backend_target"] = TARGET_SERVER
+    response["features"]["security_enabled"] = FEATURES["security_enabled"]
+    response["features"]["monitoring_enabled"] = FEATURES["monitoring_enabled"]
+    response["features"]["rate_limiting_enabled"] = FEATURES["rate_limiting_enabled"]
+    response["features"]["ip_blocking_enabled"] = FEATURES["ip_blocking_enabled"]
+    response["features"]["threat_detection_enabled"] = FEATURES[
+        "threat_detection_enabled"
+    ]
+    response["features"]["static_serving_enabled"] = FEATURES["static_serving_enabled"]
+    response["features"]["ssl_enabled"] = FEATURES["ssl_enabled"]
     return response
 
 
@@ -202,37 +171,37 @@ async def server_info():
     """Server information page / Страница информации о сервере"""
     response = API_SERVER_INFO.copy()
     response["config"]["static_root"] = str(STATIC_ROOT)
-    response["config"]["backend_server"] = str(TARGET_SERVER)
-    response["config"]["ssl_enabled"] = bool(SERVER_CONFIG["ssl_enabled"])
-    response["config"]["security_enabled"] = bool(FEATURES["security_enabled"])
-    response["config"]["timeout"] = float(SERVER_CONFIG["timeout"])
+    response["config"]["backend_server"] = TARGET_SERVER
+    response["config"]["ssl_enabled"] = SERVER_CONFIG["ssl_enabled"]
+    response["config"]["security_enabled"] = FEATURES["security_enabled"]
+    response["config"]["timeout"] = str(SERVER_CONFIG["timeout"])
     return response
 
 
 # Security statistics endpoint / Эндпоинт статистики безопасности
 @app.get("/security/stats")
-async def security_stats() -> Dict[str, Any]:
+async def security_stats():
     """Security statistics endpoint / Эндпоинт статистики безопасности"""
     return security_manager.get_security_stats()
 
 
 # Attack monitoring endpoint / Эндпоинт мониторинга атак
 @app.get("/monitoring/stats")
-async def monitoring_stats() -> Dict[str, Any]:
+async def monitoring_stats():
     """Attack monitoring statistics / Статистика мониторинга атак"""
     return attack_monitor.get_monitoring_stats()
 
 
 # Attack analysis endpoint / Эндпоинт анализа атак
 @app.get("/monitoring/analysis")
-async def attack_analysis(time_window_hours: int = 24) -> Dict[str, Any]:
+async def attack_analysis(time_window_hours: int = 24):
     """Attack pattern analysis / Анализ паттернов атак"""
     return attack_monitor.analyze_attack_patterns(time_window_hours)
 
 
 # High threat IPs endpoint / Эндпоинт IP с высокими угрозами
 @app.get("/monitoring/high-threat-ips")
-async def high_threat_ips(threshold: int = None) -> list:
+async def high_threat_ips(threshold: int = None):
     """Get high threat IP addresses / Получить IP-адреса с высокими угрозами"""
     return attack_monitor.get_high_threat_ips(threshold)
 

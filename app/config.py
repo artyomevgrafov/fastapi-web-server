@@ -181,8 +181,8 @@ SECURITY_CONFIG = {
 SERVER_CONFIG = {
     "target_server": "http://127.0.0.1:8097",
     "timeout": 30.0,
-    "static_root": Path("C:/server/httpd/data/htdocs"),
-    "ssl_enabled": True,
+    "static_root": "C:/server/httpd/data/htdocs",
+    "ssl_enabled": "True",
     "host": "0.0.0.0",
     "port": 443,
 }
@@ -199,14 +199,14 @@ LOGGING_CONFIG = {
 
 # Feature flags / Флаги функций
 FEATURES = {
-    "security_enabled": True,
-    "monitoring_enabled": True,
-    "rate_limiting_enabled": True,
-    "ip_blocking_enabled": True,
-    "threat_detection_enabled": True,
-    "static_serving_enabled": True,
-    "api_proxy_enabled": True,
-    "ssl_enabled": True,
+    "security_enabled": "True",
+    "monitoring_enabled": "True",
+    "rate_limiting_enabled": "True",
+    "ip_blocking_enabled": "True",
+    "threat_detection_enabled": "True",
+    "static_serving_enabled": "True",
+    "api_proxy_enabled": "True",
+    "ssl_enabled": "True",
 }
 
 
