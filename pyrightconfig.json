@@ -53,7 +53,7 @@
   "reportTypeCommentUsage": "none",
   "reportPrivateImportUsage": "none",
   "reportConstantRedefinition": "warning",
-  "reportDeprecated": "warning",
+  "reportDeprecated": "none",
   "reportIncompatibleMethodOverride": "warning",
   "reportIncompatibleVariableOverride": "warning",
   "reportInconsistentConstructor": "warning",

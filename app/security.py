@@ -8,7 +8,7 @@ import logging
 from typing import Dict, Set, List, Optional
 from ipaddress import ip_address, IPv4Address
 from collections import defaultdict
-from fastapi import Request, HTTPException, status
+from fastapi import Request, HTTPException, status, FastAPI
 from .monitoring import attack_monitor
 
 logger = logging.getLogger(__name__)
@@ -354,7 +354,7 @@ def security_middleware(request: Request, call_next):
     return response
 
 
-def setup_security(app):
+def setup_security(app: FastAPI) -> None:
     """
     Setup security middleware for FastAPI app / Настроить промежуточное ПО безопасности для приложения FastAPI
     """

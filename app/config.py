@@ -3,12 +3,10 @@ Configuration module using Pydantic Settings with environment variables support
 Модуль конфигурации с использованием Pydantic Settings и поддержкой переменных окружения
 """
 
-import os
 from typing import Dict, Set, List, Optional, Any
 from pathlib import Path
-from pydantic import Field, validator
-from pydantic_settings import BaseSettings
-from pydantic import AnyUrl
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class SecurityConfig(BaseSettings):
@@ -48,17 +46,17 @@ class SecurityConfig(BaseSettings):
     enable_proxy_blocking: bool = Field(default=True)
     enable_bot_protection: bool = Field(default=True)
 
-    model_config: Dict[str, Any] = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-    }
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
 
 class ServerConfig(BaseSettings):
     """Server configuration settings / Настройки конфигурации сервера"""
 
-    target_server: AnyUrl = Field(default="http://127.0.0.1:8097")
+    target_server: str = Field(default="http://127.0.0.1:8097")
     timeout: float = Field(default=30.0)
     static_root: Path = Field(default=Path("C:/server/httpd/data/htdocs"))
     ssl_enabled: bool = Field(default=True)
@@ -78,25 +76,27 @@ class ServerConfig(BaseSettings):
     gzip_min_size: int = Field(default=500)
     brotli_enabled: bool = Field(default=False)
 
-    @validator("static_root", pre=True)
+    @field_validator("static_root", mode="before")
+    @classmethod
     def validate_static_root(cls, v: Any) -> Path:
         """Validate static root path / Проверка пути к статическим файлам"""
         if isinstance(v, str):
             return Path(v)
         return v
 
-    @validator("ssl_cert_file", "ssl_key_file", pre=True)
+    @field_validator("ssl_cert_file", "ssl_key_file", mode="before")
+    @classmethod
     def validate_ssl_paths(cls, v: Any) -> Optional[Path]:
         """Validate SSL file paths / Проверка путей к SSL файлам"""
         if v and isinstance(v, str):
             return Path(v)
         return v
 
-    model_config: Dict[str, Any] = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-    }
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
 
 class LoggingConfig(BaseSettings):
@@ -109,18 +109,19 @@ class LoggingConfig(BaseSettings):
     max_log_size: str = Field(default="10MB")
     backup_count: int = Field(default=5)
 
-    @validator("log_dir", pre=True)
+    @field_validator("log_dir", mode="before")
+    @classmethod
     def validate_log_dir(cls, v: Any) -> Path:
         """Validate log directory path / Проверка пути к директории логов"""
         if isinstance(v, str):
             return Path(v)
         return v
 
-    model_config: Dict[str, Any] = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-    }
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
 
 class FeaturesConfig(BaseSettings):
@@ -137,11 +138,11 @@ class FeaturesConfig(BaseSettings):
     http2_enabled: bool = Field(default=True)
     gzip_enabled: bool = Field(default=True)
 
-    model_config: Dict[str, Any] = {
-        "env_file": ".env",
-        "env_file_encoding": "utf-8",
-        "case_sensitive": False,
-    }
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
 
 # Global configuration instances / Глобальные экземпляры конфигурации
