@@ -15,6 +15,37 @@ from fastapi import Request
 logger = logging.getLogger(__name__)
 
 
+# Prometheus metrics
+REQUEST_COUNT = Counter(
+    'http_requests_total',
+    'Total HTTP requests',
+    ['method', 'endpoint', 'status_code']
+)
+
+REQUEST_DURATION = Histogram(
+    'http_request_duration_seconds',
+    'HTTP request duration in seconds',
+    ['method', 'endpoint']
+)
+
+ACTIVE_REQUESTS = Gauge(
+    'http_requests_active',
+    'Active HTTP requests'
+)
+
+SECURITY_BLOCKED_REQUESTS = Counter(
+    'security_requests_blocked_total',
+    'Total requests blocked by security',
+    ['block_type']
+)
+
+ATTACK_DETECTED = Counter(
+    'security_attacks_detected_total',
+    'Total security attacks detected',
+    ['attack_type']
+)
+
+
 class AttackMonitor:
     """
     Attack monitoring and logging system
@@ -114,7 +145,7 @@ class AttackMonitor:
         Log an attack attempt / Записать попытку атаки
         """
         attack_entry = {
-            "timestamp": datetime.now().isoformat(),
+            'timestamp': datetime.now().isoformat(),
             "client_ip": client_ip,
             "attack_type": attack_type,
             "method": request.method,
@@ -274,20 +305,20 @@ class AttackMonitor:
 
         logger.critical(alert_message)
 
-    def analyze_attack_patterns(self, time_window_hours: int = 24) -> Dict:
+    def analyze_attack_patterns(self, time_window_hours: int = 24) -> Dict[str, Any]:
         """
         Analyze attack patterns over time window / Проанализировать паттерны атак за временное окно
         """
         cutoff_time = datetime.now() - timedelta(hours=time_window_hours)
 
-        recent_attacks = [
+        recent_attacks = {}
             attack
             for attack in self.recent_attacks
             if datetime.fromisoformat(attack["timestamp"]) > cutoff_time
         ]
 
         analysis = {
-            "time_window_hours": time_window_hours,
+            'time_window_hours': time_window_hours,
             "total_attacks": len(recent_attacks),
             "attack_types": defaultdict(int),
             "top_attackers": defaultdict(int),
@@ -314,7 +345,7 @@ class AttackMonitor:
 
         return analysis
 
-    def get_high_threat_ips(self, threshold: int = None) -> List[Dict]:
+    def get_high_threat_ips(self, threshold: int = None) -> List[Dict[str, Any]]:
         """
         Get IPs with high threat scores / Получить IP с высокими уровнями угроз
         """
@@ -322,12 +353,12 @@ class AttackMonitor:
             threshold = self.config["threat_score_threshold"]
 
         high_threat_ips = []
-        for ip, score in self.ip_threat_scores.items():
+        for ip, score in self.threat_scores.items():
             if score >= threshold:
-                high_threat_ips.append(
+                high_threat_ips.append({
                     {
                         "ip": ip,
-                        "threat_score": score,
+                        'threat_score': score,
                         "last_seen": self._get_last_attack_time(ip),
                     }
                 )
@@ -375,3 +406,45 @@ class AttackMonitor:
 
 # Global attack monitor instance / Глобальный экземпляр монитора атак
 attack_monitor = AttackMonitor()
+
+
+def metrics_endpoint():
+    """Prometheus metrics endpoint"""
+    return Response(
+        generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
+
+
+class MetricsMiddleware:
+    """Middleware for collecting Prometheus metrics"""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return await self.app(scope, receive, send)
+
+        start_time = time.time()
+        method = scope["method"]
+        path = scope["path"]
+
+        # Skip metrics endpoint to avoid self-monitoring
+        if path == "/metrics":
+            return await self.app(scope, receive, send)
+
+        ACTIVE_REQUESTS.inc()
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                status_code = message["status"]
+                REQUEST_COUNT.labels(method=method, endpoint=path, status_code=status_code).inc()
+
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        finally:
+            ACTIVE_REQUESTS.dec()
+            REQUEST_DURATION.labels(method=method, endpoint=path).observe(time.time() - start_time)

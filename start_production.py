@@ -1,6 +1,7 @@
+#!/usr/bin/env python3
 """
-Production Server with HTTP/2 Support
-Производственный сервер с поддержкой HTTP/2
+Production Server with HTTP/2 Support via Hypercorn
+Производственный сервер с поддержкой HTTP/2 через Hypercorn
 
 This script starts a production-ready FastAPI server with HTTP/2,
 performance optimizations, and security features.
@@ -8,15 +9,17 @@ performance optimizations, and security features.
 
 import os
 import sys
+import asyncio
 from pathlib import Path
 
 # Add app directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+app_dir = Path(__file__).parent / "app"
+sys.path.insert(0, str(app_dir))
 
-import uvicorn
 import logging
-from app.main import app
-from app.config import SERVER_CONFIG
+from hypercorn.config import Config
+from hypercorn.asyncio import serve
+from app.config import server_config, security_config, features_config
 
 # Configure logging
 logging.basicConfig(
@@ -45,72 +48,72 @@ def check_environment():
             )
 
 
-def configure_ssl():
-    """Configure SSL for production"""
-    ssl_config = {}
-
-    if SERVER_CONFIG.get("ssl_enabled"):
-        cert_dir = Path("certs")
-        cert_file = cert_dir / "cert.pem"
-        key_file = cert_dir / "key.pem"
-
-        if cert_file.exists() and key_file.exists():
-            ssl_config = {
-                "ssl_certfile": str(cert_file),
-                "ssl_keyfile": str(key_file),
-                "ssl_version": 2,  # TLS 1.2+
-            }
-            logger.info("SSL certificates found and configured")
-        else:
-            logger.warning(
-                "SSL enabled but certificates not found. Running without SSL."
-            )
-
-    return ssl_config
-
-
-def main():
-    """Main function to start production server"""
+async def main():
+    """Main function to start production server with HTTP/2"""
     try:
         # Environment checks
         check_environment()
 
+        # Configure Hypercorn
+        config = Config()
+
+        # Basic configuration
+        config.bind = [f"{server_config.host}:{server_config.port}"]
+        config.workers = server_config.workers
+
+        # HTTP/2 configuration
+        config.h2c_upgrade = True  # Allow HTTP/2 over cleartext
+        config.h11_pass_raw_headers = True
+
+        # Enable HTTP/2 when SSL is available
+        if server_config.http2_enabled:
+            logger.info("HTTP/2 support enabled")
+
         # SSL configuration
-        ssl_config = configure_ssl()
+        if (
+            server_config.ssl_enabled
+            and server_config.ssl_cert_file
+            and server_config.ssl_key_file
+        ):
+            if (
+                server_config.ssl_cert_file.exists()
+                and server_config.ssl_key_file.exists()
+            ):
+                config.certfile = str(server_config.ssl_cert_file)
+                config.keyfile = str(server_config.ssl_key_file)
+                logger.info(
+                    f"🔒 SSL enabled with certificate: {server_config.ssl_cert_file}"
+                )
 
-        # Uvicorn configuration for production
-        uvicorn_config = {
-            "app": "app.main:app",
-            "host": SERVER_CONFIG.get("host", "0.0.0.0"),
-            "port": SERVER_CONFIG.get("port", 443),
-            "workers": int(os.getenv("UVICORN_WORKERS", "4")),
-            "loop": "uvloop",  # High-performance event loop
-            "http": "httptools",  # High-performance HTTP parser
-            "lifespan": "on",
-            "access_log": True,
-            "proxy_headers": True,
-            "forwarded_allow_ips": "*",
-            "timeout_keep_alive": 5,
-            "timeout_notify": 30,
-            "timeout_graceful_shutdown": 30,
-        }
+                # Enable HTTP/2 with SSL
+                if server_config.http2_enabled:
+                    logger.info("HTTP/2 with SSL enabled")
+            else:
+                logger.warning("SSL certificate files not found, running without SSL")
 
-        # Add SSL config if enabled
-        if ssl_config:
-            uvicorn_config.update(ssl_config)
-            # Enable HTTP/2 when SSL is available
-            uvicorn_config["http"] = "auto"  # Allows HTTP/2
+        # Performance settings
+        config.keep_alive_timeout = 30
+        config.max_app_queue_size = 100
+        config.backlog = 2048
 
-        logger.info("🚀 Starting Production FastAPI Server")
-        logger.info(f"Host: {uvicorn_config['host']}")
-        logger.info(f"Port: {uvicorn_config['port']}")
-        logger.info(f"Workers: {uvicorn_config['workers']}")
-        logger.info(f"SSL Enabled: {bool(ssl_config)}")
-        logger.info(f"HTTP/2: {bool(ssl_config)}")
+        # Security settings
+        config.accesslog = "-"  # Log to stdout
+        config.errorlog = "-"
+
+        # Import app after path setup
+        from app.main import app
+
+        logger.info("🚀 Starting Production FastAPI Server with HTTP/2")
+        logger.info(f"   Host: {server_config.host}")
+        logger.info(f"   Port: {server_config.port}")
+        logger.info(f"   Workers: {server_config.workers}")
+        logger.info(f"   SSL: {server_config.ssl_enabled}")
+        logger.info(f"   HTTP/2: {server_config.http2_enabled}")
+        logger.info(f"   Security: {features_config.security_enabled}")
         logger.info("Press Ctrl+C to stop the server")
 
         # Start server
-        uvicorn.run(**uvicorn_config)
+        await serve(app, config)
 
     except KeyboardInterrupt:
         logger.info("⏹️ Production server stopped by user")
@@ -120,4 +123,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

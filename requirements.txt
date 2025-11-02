@@ -37,7 +37,9 @@ pre-commit==3.5.0
 
 # Optional: For advanced features
 brotli==1.1.0
+brotli-asgi==1.4.0
 python-jose==3.3.0
 passlib==1.7.4
 bcrypt==4.0.1
 cryptography==41.0.7
+prometheus-client==0.19.0

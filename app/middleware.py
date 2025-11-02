@@ -3,10 +3,15 @@ Production Middleware for Security and Performance
 Промежуточное ПО для безопасности и производительности
 """
 
-import gzip
 import time
+from typing import Dict, Optional
+from fastapi import Request
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+import gzip
 from typing import Dict, Any, Optional
-from fastapi import Request, Response
+from fastapi import Request
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp, Message
@@ -18,16 +23,24 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     Промежуточное ПО заголовков безопасности для продакшена
     """
 
-    def __init__(self, app: ASGIApp):
+    def __init__(self, app: ASGIApp, enable_hsts: bool = True):
         super().__init__(app)
+        self.enable_hsts = enable_hsts
         self.security_headers = {
             "X-Frame-Options": "DENY",
             "X-Content-Type-Options": "nosniff",
             "X-XSS-Protection": "1; mode=block",
             "Referrer-Policy": "strict-origin-when-cross-origin",
-            "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
-            "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+            "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Resource-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp",
         }
+
+        if self.enable_hsts:
+            self.security_headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains; preload"
+            )
 
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
@@ -39,16 +52,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Content Security Policy
         csp = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
             "style-src 'self' 'unsafe-inline'; "
-            "img-src 'self' data: https:; "
-            "font-src 'self'; "
-            "connect-src 'self'; "
+            "img-src 'self' data: blob: https:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' ws: wss:; "
             "object-src 'none'; "
             "base-uri 'self'; "
-            "form-action 'self'"
+            "form-action 'self'; "
+            "frame-ancestors 'none'; "
+            "upgrade-insecure-requests"
         )
         response.headers["Content-Security-Policy"] = csp
+
+        # Remove server header
+        if "server" in response.headers:
+            del response.headers["server"]
 
         return response
 

@@ -4,6 +4,9 @@ from fastapi.responses import FileResponse, Response
 from pathlib import Path
 import httpx
 import logging
+import hashlib
+import os
+from datetime import datetime, timezone
 
 from .security import security_manager, setup_security
 from .monitoring import attack_monitor
@@ -124,11 +127,100 @@ async def serve_static_files(request: Request, filename: str = ""):
 
     # Check if file exists and serve it / Проверка существования файла и его обслуживание
     if Path(file_path).exists() and Path(file_path).is_file():
-        return FileResponse(str(file_path))
+        return await serve_file_with_etag_and_range(request, file_path)
 
     # If file doesn't exist, proxy to backend / Если файл не существует, проксирование к бэкенду
     logger.info(FILE_NOT_FOUND.format(filename))
     return await proxy_request(request, filename)
+
+
+async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> Response:
+    """Serve file with ETag and Range request support / Обслуживание файла с поддержкой ETag и Range запросов"""
+    # Get file stats
+    stat = file_path.stat()
+    file_size = stat.st_size
+    last_modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+
+    # Generate ETag from file content hash and modification time
+    etag_content = f"{file_path.name}-{stat.st_mtime}-{file_size}"
+    etag = hashlib.md5(etag_content.encode()).hexdigest()
+
+    # Check If-None-Match header for cache validation
+    if_none_match = request.headers.get("if-none-match")
+    if if_none_match and if_none_match == etag:
+        return Response(status_code=304)
+
+    # Check If-Modified-Since header
+    if_modified_since = request.headers.get("if-modified-since")
+    if if_modified_since:
+        try:
+            if_modified_since_dt = datetime.strptime(
+                if_modified_since, "%a, %d %b %Y %H:%M:%S GMT"
+            )
+            if last_modified <= if_modified_since_dt.replace(tzinfo=timezone.utc):
+                return Response(status_code=304)
+        except ValueError:
+            pass
+
+    # Handle Range requests
+    range_header = request.headers.get("range")
+    if range_header and range_header.startswith("bytes="):
+        try:
+            # Parse range header: bytes=0-499, 500-999, etc.
+            range_spec = range_header[6:]  # Remove "bytes="
+            ranges = []
+
+            for range_part in range_spec.split(","):
+                if "-" in range_part:
+                    start_end = range_part.split("-")
+                    if len(start_end) == 2:
+                        start = int(start_end[0]) if start_end[0] else 0
+                        end = int(start_end[1]) if start_end[1] else file_size - 1
+                        ranges.append((start, min(end, file_size - 1)))
+
+            if ranges:
+                # For now, handle single range (most common case)
+                start, end = ranges[0]
+                content_length = end - start + 1
+
+                # Read file chunk
+                with open(file_path, "rb") as f:
+                    f.seek(start)
+                    content = f.read(content_length)
+
+                headers = {
+                    "content-type": "application/octet-stream",
+                    "content-length": str(content_length),
+                    "content-range": f"bytes {start}-{end}/{file_size}",
+                    "accept-ranges": "bytes",
+                    "etag": etag,
+                    "last-modified": last_modified.strftime(
+                        "%a, %d %b %Y %H:%M:%S GMT"
+                    ),
+                    "cache-control": "public, max-age=3600",
+                }
+
+                return Response(
+                    content=content,
+                    status_code=206,  # Partial Content
+                    headers=headers,
+                )
+        except (ValueError, IndexError, OSError):
+            # Fall back to full file if range parsing fails
+            pass
+
+    # Serve full file with ETag and caching headers
+    headers = {
+        "accept-ranges": "bytes",
+        "etag": etag,
+        "last-modified": last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT"),
+        "cache-control": "public, max-age=3600",
+    }
+
+    return FileResponse(
+        str(file_path),
+        headers=headers,
+    )
 
 
 # API routes that should always proxy to backend / API маршруты, которые всегда проксируются к бэкенду

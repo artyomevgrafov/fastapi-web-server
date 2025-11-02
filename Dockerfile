@@ -23,18 +23,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create necessary directories
-RUN mkdir -p logs static certs
+RUN mkdir -p logs static certs data/htdocs
 
 # Create non-root user for security
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Expose ports (HTTP and HTTPS)
-EXPOSE 80 443 8080
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/health || exit 1
 
-# Start command with HTTP/2 support and Linux optimizations
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4", "--http", "httptools", "--loop", "uvloop", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# Start command with multiple workers and uvloop
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "4", "--loop", "uvloop", "--proxy-headers", "--forwarded-allow-ips", "*"]
