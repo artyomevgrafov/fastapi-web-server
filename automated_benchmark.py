@@ -22,7 +22,7 @@ class AutomatedBenchmark:
         self.base_url = base_url
         self.client = httpx.AsyncClient(timeout=30.0)
         self.results = {}
-        self.start_time = None
+        self.start_time: float | None = None
 
     async def initialize(self):
         """Initialize benchmark environment"""
@@ -384,7 +384,9 @@ class AutomatedBenchmark:
             "metadata": {
                 "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
                 "server_url": self.base_url,
-                "total_duration_seconds": round(time.time() - self.start_time, 2),
+                "total_duration_seconds": round(
+                    time.time() - (self.start_time or 0), 2
+                ),
             },
             "summary": {
                 "overall_score": self.results["overall_score"],

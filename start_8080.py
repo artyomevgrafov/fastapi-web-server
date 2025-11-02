@@ -22,7 +22,7 @@ def load_config():
     setup_environment()
 
     try:
-        from config_8080 import get_config_8080
+        from .config_8080 import get_config_8080
 
         # Set environment if not already set
         if "FASTAPI_ENV" not in os.environ:
@@ -63,8 +63,8 @@ class UvicornConfig(TypedDict, total=False):
     access_log: bool
     ssl_certfile: Union[str, Path]
     ssl_keyfile: Union[str, Path]
-    ssl_keyfile_password: Union[str, Path]
-    ssl_ca_certs: Union[str, Path]
+    ssl_keyfile_password: str | None
+    ssl_ca_certs: str | None
 
 
 def build_uvicorn_config(config) -> UvicornConfig:
