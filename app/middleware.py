@@ -4,6 +4,7 @@ Production Middleware for Security and Performance
 """
 
 from typing import Dict, Any, Optional, List, Tuple
+from fastapi import FastAPI
 
 import time
 import gzip
@@ -222,7 +223,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 
-def setup_production_middleware(app: ASGIApp) -> None:
+def setup_production_middleware(app: FastAPI) -> None:
     """
     Setup all production middleware
     Настройка всего производственного промежуточного ПО
@@ -242,4 +243,4 @@ def setup_production_middleware(app: ASGIApp) -> None:
     # Request logging
     app.add_middleware(RequestLoggingMiddleware)
 
-    return app
+    return None
