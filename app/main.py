@@ -4,6 +4,10 @@ from fastapi.responses import FileResponse, Response
 from pathlib import Path
 import httpx
 import logging
+from typing import Dict, Any
+from .security import security_manager, setup_security
+from .monitoring import attack_monitor
+from .config import SERVER_CONFIG, FEATURES
 from .messages import (
     SERVER_TITLE,
     SERVER_DESCRIPTION,
@@ -56,11 +60,14 @@ app = FastAPI(
     version=SERVER_VERSION,
 )
 
+# Setup security middleware / Настройка промежуточного ПО безопасности
+setup_security(app)
+
 # Configuration / Конфигурация
-TARGET_SERVER = "http://127.0.0.1:8097"
-TIMEOUT = 30.0
+TARGET_SERVER = str(SERVER_CONFIG["target_server"])
+TIMEOUT = float(SERVER_CONFIG["timeout"])
 STATIC_ROOT = Path(
-    "C:/server/httpd/data/htdocs"
+    SERVER_CONFIG["static_root"]
 )  # Same as Apache DocumentRoot / Как в Apache DocumentRoot
 
 # Mount static files (like Apache DocumentRoot) / Подключение статических файлов (как в Apache DocumentRoot)
@@ -90,7 +97,7 @@ async def proxy_request(request: Request, path: str = ""):
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
             response = await client.request(
                 method=request.method,
-                url=target_url,
+                url=str(target_url),
                 headers=headers,
                 content=body,
                 params=request.query_params,
@@ -106,7 +113,7 @@ async def proxy_request(request: Request, path: str = ""):
                     import json
 
                     content = json.dumps(response.json()).encode("utf-8")
-                except:
+                except Exception:
                     content = response.text.encode("utf-8")
 
             return Response(
@@ -134,10 +141,10 @@ async def serve_static_files(request: Request, filename: str = ""):
     if not filename:
         filename = "index.html"
 
-    file_path = STATIC_ROOT / filename
+    file_path = Path(STATIC_ROOT) / filename
 
     # Check if file exists and serve it / Проверка существования файла и его обслуживание
-    if file_path.exists() and file_path.is_file():
+    if Path(file_path).exists() and Path(file_path).is_file():
         return FileResponse(str(file_path))
 
     # If file doesn't exist, proxy to backend / Если файл не существует, проксирование к бэкенду
@@ -169,10 +176,23 @@ async def proxy_query_routes(request: Request, path: str = ""):
 async def health_check():
     """Health check endpoint / Эндпоинт проверки состояния"""
     response = API_HEALTH_RESPONSE.copy()
-    response["features"]["static_serving"] = STATIC_ROOT.exists()
-    response["features"]["proxy_enabled"] = True
+    response["features"]["static_serving"] = Path(STATIC_ROOT).exists()
+    response["features"]["proxy_enabled"] = bool(FEATURES["api_proxy_enabled"])
     response["features"]["document_root"] = str(STATIC_ROOT)
-    response["features"]["backend_target"] = TARGET_SERVER
+    response["features"]["backend_target"] = str(TARGET_SERVER)
+    response["features"]["security_enabled"] = bool(FEATURES["security_enabled"])
+    response["features"]["monitoring_enabled"] = bool(FEATURES["monitoring_enabled"])
+    response["features"]["rate_limiting_enabled"] = bool(
+        FEATURES["rate_limiting_enabled"]
+    )
+    response["features"]["ip_blocking_enabled"] = bool(FEATURES["ip_blocking_enabled"])
+    response["features"]["threat_detection_enabled"] = bool(
+        FEATURES["threat_detection_enabled"]
+    )
+    response["features"]["static_serving_enabled"] = bool(
+        FEATURES["static_serving_enabled"]
+    )
+    response["features"]["ssl_enabled"] = bool(FEATURES["ssl_enabled"])
     return response
 
 
@@ -182,9 +202,39 @@ async def server_info():
     """Server information page / Страница информации о сервере"""
     response = API_SERVER_INFO.copy()
     response["config"]["static_root"] = str(STATIC_ROOT)
-    response["config"]["backend_server"] = TARGET_SERVER
-    response["config"]["ssl_enabled"] = True
+    response["config"]["backend_server"] = str(TARGET_SERVER)
+    response["config"]["ssl_enabled"] = bool(SERVER_CONFIG["ssl_enabled"])
+    response["config"]["security_enabled"] = bool(FEATURES["security_enabled"])
+    response["config"]["timeout"] = float(SERVER_CONFIG["timeout"])
     return response
+
+
+# Security statistics endpoint / Эндпоинт статистики безопасности
+@app.get("/security/stats")
+async def security_stats() -> Dict[str, Any]:
+    """Security statistics endpoint / Эндпоинт статистики безопасности"""
+    return security_manager.get_security_stats()
+
+
+# Attack monitoring endpoint / Эндпоинт мониторинга атак
+@app.get("/monitoring/stats")
+async def monitoring_stats() -> Dict[str, Any]:
+    """Attack monitoring statistics / Статистика мониторинга атак"""
+    return attack_monitor.get_monitoring_stats()
+
+
+# Attack analysis endpoint / Эндпоинт анализа атак
+@app.get("/monitoring/analysis")
+async def attack_analysis(time_window_hours: int = 24) -> Dict[str, Any]:
+    """Attack pattern analysis / Анализ паттернов атак"""
+    return attack_monitor.analyze_attack_patterns(time_window_hours)
+
+
+# High threat IPs endpoint / Эндпоинт IP с высокими угрозами
+@app.get("/monitoring/high-threat-ips")
+async def high_threat_ips(threshold: int = None) -> list:
+    """Get high threat IP addresses / Получить IP-адреса с высокими угрозами"""
+    return attack_monitor.get_high_threat_ips(threshold)
 
 
 if __name__ == "__main__":
