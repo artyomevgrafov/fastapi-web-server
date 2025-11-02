@@ -47,8 +47,6 @@ class SecurityConfig(BaseSettings):
     enable_bot_protection: bool = Field(default=True)
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
         case_sensitive=False,
     )
 
@@ -93,8 +91,6 @@ class ServerConfig(BaseSettings):
         return v
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
         case_sensitive=False,
     )
 
@@ -118,8 +114,6 @@ class LoggingConfig(BaseSettings):
         return v
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
         case_sensitive=False,
     )
 
@@ -139,8 +133,6 @@ class FeaturesConfig(BaseSettings):
     gzip_enabled: bool = Field(default=True)
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
         case_sensitive=False,
     )
 

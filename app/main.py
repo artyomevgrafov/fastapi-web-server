@@ -69,9 +69,9 @@ async def proxy_request(request: Request, path: str = "") -> Response:
     try:
         # Build target URL / Создание целевого URL
         if path:
-            target_url: str = f"{TARGET_SERVER}/{path}"
+            target_url = f"{TARGET_SERVER}/{path}"
         else:
-            target_url: str = TARGET_SERVER
+            target_url = TARGET_SERVER
 
         # Prepare headers / Подготовка заголовков
         headers: Dict[str, str] = dict(request.headers)
@@ -194,7 +194,7 @@ async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> R
                     _ = f.seek(start)
                     content: bytes = f.read(content_length)
 
-                headers: Dict[str, str] = {
+                range_headers = {
                     "content-type": "application/octet-stream",
                     "content-length": str(content_length),
                     "content-range": f"bytes {start}-{end}/{file_size}",
@@ -209,7 +209,7 @@ async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> R
                 return Response(
                     content=content,
                     status_code=206,  # Partial Content
-                    headers=headers,
+                    headers=range_headers,
                 )
         except (ValueError, IndexError, OSError):
             # Fall back to full file if range parsing fails

@@ -335,9 +335,12 @@ class AttackMonitor:
         if threshold is None:
             threshold = self.config.get("threat_score_threshold", 10)
 
+        # Ensure threshold is not None for comparison
+        threshold_value = threshold if threshold is not None else 10
+
         high_threat_ips = []
         for ip, score in self.ip_threat_scores.items():
-            if score >= threshold:
+            if score is not None and score >= threshold_value:
                 high_threat_ips.append(
                     {
                         "ip": ip,
