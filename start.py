@@ -8,6 +8,7 @@ import os
 import sys
 import uvicorn
 from pathlib import Path
+from typing import Any, Dict
 
 
 def setup_environment():
@@ -36,7 +37,7 @@ def load_config():
         sys.exit(1)
 
 
-def setup_ssl(config):
+def setup_ssl(config: Any) -> bool:
     """Setup SSL certificates"""
     if not config.SSL_ENABLED:
         return False
@@ -79,9 +80,9 @@ def import_app():
         sys.exit(1)
 
 
-def build_uvicorn_config(config, ssl_enabled):
+def build_uvicorn_config(config: Any, ssl_enabled: bool) -> Dict[str, Any]:
     """Build uvicorn configuration"""
-    uvicorn_config = {
+    uvicorn_config: Dict[str, Any] = {
         "host": config.HOST,
         "port": config.PORT,
         "reload": config.RELOAD,
@@ -105,13 +106,13 @@ def build_uvicorn_config(config, ssl_enabled):
     return uvicorn_config
 
 
-def print_server_info(config, ssl_enabled):
+def print_server_info(config: Any, ssl_enabled: bool) -> None:
     """Print server startup information"""
     protocol = "https" if ssl_enabled else "http"
-    port_display = config.PORT if config.PORT != (443 if ssl_enabled else 80) else ""
-    base_url = (
-        f"{protocol}://localhost{':' + str(port_display) if port_display else ''}"
+    port_display = (
+        str(config.PORT) if config.PORT != (443 if ssl_enabled else 80) else ""
     )
+    base_url = f"{protocol}://localhost{':' + port_display if port_display else ''}"
 
     print("=" * 50)
     print("🚀 FastAPI Server")
@@ -148,9 +149,9 @@ def main():
     # Start server
     try:
         if uvicorn_config.get("reload"):
-            uvicorn.run("app.main:app", **uvicorn_config)
+            uvicorn.run("app.main:app", **uvicorn_config)  # type: ignore
         else:
-            uvicorn.run(app, **uvicorn_config)
+            uvicorn.run(app, **uvicorn_config)  # type: ignore
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
     except Exception as e:

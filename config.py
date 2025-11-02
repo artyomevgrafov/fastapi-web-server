@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Union, Dict, List
 
 
 class ServerConfig:
@@ -26,8 +26,8 @@ class ServerConfig:
     REDOC_URL: str = "/redoc"
 
     # Security settings / Настройки безопасности
-    CORS_ORIGINS: list[str] = ["*"]
-    ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1", "0.0.0.0"]
+    CORS_ORIGINS: List[str] = ["*"]
+    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "0.0.0.0"]
 
     # Performance settings / Настройки производительности
     MAX_UPLOAD_SIZE: int = 100 * 1024 * 1024  # 100MB
@@ -45,9 +45,9 @@ class ServerConfig:
     SSL_CA_FILE: str | None = None
 
     @classmethod
-    def get_uvicorn_config(cls) -> dict[str, Union[str, int, bool, None]]:
+    def get_uvicorn_config(cls) -> Dict[str, Union[str, int, bool, None]]:
         """Get uvicorn configuration dictionary / Получить словарь конфигурации uvicorn"""
-        config = {
+        config: Dict[str, Union[str, int, bool, None]] = {
             "host": cls.HOST,
             "port": cls.PORT,
             "reload": cls.RELOAD,
@@ -57,7 +57,7 @@ class ServerConfig:
 
         # Add SSL configuration if enabled / Добавить SSL конфигурацию если включена
         if cls.SSL_ENABLED and cls.SSL_CERT_FILE and cls.SSL_KEY_FILE:
-            ssl_config: dict[str, Union[str, int, bool, None]] = {
+            ssl_config: Dict[str, Union[str, int, bool, None]] = {
                 "ssl_certfile": cls.SSL_CERT_FILE,
                 "ssl_keyfile": cls.SSL_KEY_FILE,
                 "ssl_keyfile_password": cls.SSL_CERT_PASSWORD,
@@ -70,7 +70,7 @@ class ServerConfig:
         return config
 
     @classmethod
-    def get_fastapi_config(cls) -> dict[str, str]:
+    def get_fastapi_config(cls) -> Dict[str, str]:
         """Get FastAPI configuration dictionary / Получить словарь конфигурации FastAPI"""
         return {
             "title": "FastAPI Web Server",
@@ -81,14 +81,14 @@ class ServerConfig:
         }
 
     @classmethod
-    def create_directories(cls):
+    def create_directories(cls) -> None:
         """Create necessary directories if they don't exist / Создать необходимые директории если они не существуют"""
         directories = [cls.STATIC_DIR, cls.TEMPLATES_DIR, cls.LOGS_DIR]
         for directory in directories:
             directory.mkdir(exist_ok=True)
 
     @classmethod
-    def validate_config(cls):
+    def validate_config(cls) -> None:
         """Validate configuration settings / Проверить настройки конфигурации"""
         if cls.PORT < 1 or cls.PORT > 65535:
             raise ValueError(f"Invalid port number: {cls.PORT}")
@@ -124,14 +124,14 @@ class ProductionConfig(ServerConfig):
 
 
 # Configuration mapping / Сопоставление конфигураций
-configs = {
+configs: Dict[str, Any] = {
     "development": DevelopmentConfig,
     "production": ProductionConfig,
     "default": ServerConfig,
 }
 
 
-def get_config(env: str | None = None) -> ServerConfig:
+def get_config(env: Union[str, None] = None) -> ServerConfig:
     """Get configuration based on environment / Получить конфигурацию на основе окружения"""
     if env is None:
         env = os.getenv("FASTAPI_ENV", "default")

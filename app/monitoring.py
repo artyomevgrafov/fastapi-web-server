@@ -7,7 +7,7 @@ import time
 import logging
 import json
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from pathlib import Path
 from collections import defaultdict, deque
 from fastapi import Request, Response
@@ -30,11 +30,11 @@ class AttackMonitor:
     """
 
     def __init__(self, log_dir: str = "logs"):
-        self.log_dir = Path(log_dir)
+        self.log_dir: Path = Path(log_dir)
         self.log_dir.mkdir(exist_ok=True)
 
         # Attack statistics / Статистика атак
-        self.attack_stats = {
+        self.attack_stats: Dict[str, Union[int, defaultdict[str, int]]] = {
             "total_attacks": 0,
             "blocked_requests": 0,
             "suspicious_requests": 0,
@@ -44,13 +44,13 @@ class AttackMonitor:
         }
 
         # Recent attacks for analysis / Недавние атаки для анализа
-        self.recent_attacks = deque(maxlen=1000)
+        self.recent_attacks: deque[Dict[str, Any]] = deque(maxlen=1000)
 
         # IP threat scores / Уровни угроз по IP
-        self.ip_threat_scores = defaultdict(int)
+        self.ip_threat_scores: defaultdict[str, int] = defaultdict(int)
 
         # Attack patterns database / База данных паттернов атак
-        self.attack_patterns = self._load_attack_patterns()
+        self.attack_patterns: Dict[str, Any] = self._load_attack_patterns()
 
         # Configuration / Конфигурация
         self.config = {
@@ -62,7 +62,7 @@ class AttackMonitor:
             "alert_on_major_attacks": True,
         }
 
-    def _load_attack_patterns(self) -> Dict:
+    def _load_attack_patterns(self) -> Dict[str, Any]:
         """
         Load common attack patterns / Загрузить общие паттерны атак
         """
@@ -133,8 +133,10 @@ class AttackMonitor:
         }
 
         # Update statistics / Обновить статистику
-        self.attack_stats["total_attacks"] += 1
-        self.attack_stats["attack_types"][attack_type] += 1
+        self.attack_stats["total_attacks"] = int(self.attack_stats["total_attacks"]) + 1
+        attack_types_dict = self.attack_stats["attack_types"]
+        if isinstance(attack_types_dict, defaultdict):
+            attack_types_dict[attack_type] += 1
 
         # Update IP threat score / Обновить уровень угрозы IP
         self.ip_threat_scores[client_ip] += self._get_threat_score(attack_type)
@@ -163,7 +165,9 @@ class AttackMonitor:
         """
         Log a blocked request / Записать заблокированный запрос
         """
-        self.attack_stats["blocked_requests"] += 1
+        self.attack_stats["blocked_requests"] = (
+            int(self.attack_stats["blocked_requests"]) + 1
+        )
 
         blocked_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -183,7 +187,9 @@ class AttackMonitor:
         """
         Log a suspicious request / Записать подозрительный запрос
         """
-        self.attack_stats["suspicious_requests"] += 1
+        self.attack_stats["suspicious_requests"] = (
+            int(self.attack_stats["suspicious_requests"]) + 1
+        )
 
         suspicious_entry = {
             "timestamp": datetime.now().isoformat(),
@@ -200,7 +206,7 @@ class AttackMonitor:
 
         logger.info(f"Suspicious request - IP: {client_ip}, Reason: {reason}")
 
-    def _write_attack_log(self, attack_entry: Dict):
+    def _write_attack_log(self, attack_entry: Dict[str, Any]):
         """
         Write attack log to file / Записать лог атаки в файл
         """
@@ -212,7 +218,7 @@ class AttackMonitor:
         except Exception as e:
             logger.error(f"Failed to write attack log: {e}")
 
-    def _write_blocked_log(self, blocked_entry: Dict):
+    def _write_blocked_log(self, blocked_entry: Dict[str, Any]):
         """
         Write blocked request log to file / Записать лог заблокированных запросов в файл
         """
@@ -224,7 +230,7 @@ class AttackMonitor:
         except Exception as e:
             logger.error(f"Failed to write blocked log: {e}")
 
-    def _write_suspicious_log(self, suspicious_entry: Dict):
+    def _write_suspicious_log(self, suspicious_entry: Dict[str, Any]):
         """
         Write suspicious request log to file / Записать лог подозрительных запросов в файл
         """
@@ -266,7 +272,7 @@ class AttackMonitor:
         threat_level = self._calculate_threat_level(attack_type)
         return score_map.get(threat_level, 2)
 
-    def _trigger_alert(self, attack_entry: Dict):
+    def _trigger_alert(self, attack_entry: Dict[str, Any]):
         """
         Trigger alert for major attack / Запустить оповещение для серьезной атаки
         """
@@ -282,7 +288,9 @@ class AttackMonitor:
 
         logger.critical(alert_message)
 
-    def analyze_attack_patterns(self, time_window_hours: int = 24) -> Dict[str, Any]:
+    def analyze_attack_patterns(
+        self, time_window_hours: int = 24
+    ) -> Dict[str, Union[int, Dict[str, int]]]:
         """
         Analyze attack patterns over time window / Проанализировать паттерны атак за временное окно
         """
@@ -304,7 +312,8 @@ class AttackMonitor:
         }
 
         for attack in recent_attacks:
-            analysis["attack_types"][attack["attack_type"]] += 1
+            if "attack_type" in attack:
+                analysis["attack_types"][attack["attack_type"]] += 1
             analysis["top_attackers"][attack["client_ip"]] += 1
             analysis["threat_levels"][attack["threat_level"]] += 1
 
@@ -355,7 +364,9 @@ class AttackMonitor:
                 return attack["timestamp"]
         return None
 
-    def get_monitoring_stats(self) -> Dict:
+    def get_monitoring_stats(
+        self,
+    ) -> Dict[str, Union[int, Dict[str, Union[int, defaultdict[str, int]]]]]:
         """
         Get comprehensive monitoring statistics / Получить комплексную статистику мониторинга
         """
@@ -390,7 +401,14 @@ attack_monitor = AttackMonitor()
 def metrics_endpoint():
     """Prometheus metrics endpoint"""
     try:
-        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        try:
+            from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+        except ImportError:
+            # Fallback if prometheus_client is not available
+            CONTENT_TYPE_LATEST = "text/plain"
+
+            def generate_latest(registry):  # type: ignore
+                return b"Prometheus metrics not available"
 
         return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
     except ImportError:
@@ -401,13 +419,30 @@ class MetricsMiddleware:
     """Middleware for collecting Prometheus metrics"""
 
     def __init__(self, app):
-        self.app = app
+        self.app: Any = app
         self._initialize_metrics()
 
     def _initialize_metrics(self):
         """Initialize Prometheus metrics if available"""
         try:
-            from prometheus_client import Counter, Histogram, Gauge
+            try:
+                from prometheus_client import Counter, Histogram, Gauge
+            except ImportError:
+                # Fallback if prometheus_client is not available
+                class MockMetric:
+                    def labels(self, **kwargs):  # type: ignore
+                        return self
+
+                    def inc(self, amount=1):  # type: ignore
+                        pass
+
+                    def dec(self, amount=1):  # type: ignore
+                        pass
+
+                    def observe(self, amount):  # type: ignore
+                        pass
+
+                Counter = Histogram = Gauge = MockMetric  # type: ignore
 
             global \
                 REQUEST_COUNT, \
@@ -417,6 +452,12 @@ class MetricsMiddleware:
                 ATTACK_DETECTED
 
             if REQUEST_COUNT is None:
+                global \
+                    REQUEST_COUNT, \
+                    REQUEST_DURATION, \
+                    ACTIVE_REQUESTS, \
+                    SECURITY_BLOCKED_REQUESTS, \
+                    ATTACK_DETECTED
                 REQUEST_COUNT = Counter(
                     "http_requests_total",
                     "Total HTTP requests",
@@ -442,7 +483,9 @@ class MetricsMiddleware:
             # Prometheus not available, metrics will be disabled
             pass
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(
+        self, scope: Dict[str, Any], receive: Any, send: Any
+    ) -> Optional[Any]:
         if scope["type"] != "http":
             return await self.app(scope, receive, send)
 
@@ -457,7 +500,7 @@ class MetricsMiddleware:
         if ACTIVE_REQUESTS:
             ACTIVE_REQUESTS.inc()
 
-        async def send_wrapper(message):
+        async def send_wrapper(message: Dict[str, Any]):
             if message["type"] == "http.response.start" and REQUEST_COUNT:
                 status_code = message["status"]
                 REQUEST_COUNT.labels(

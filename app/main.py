@@ -5,6 +5,7 @@ from pathlib import Path
 import httpx
 import logging
 import hashlib
+from typing import Dict, Any
 
 from datetime import datetime, timezone
 
@@ -49,10 +50,10 @@ _ = setup_production_middleware(app)
 _ = app.add_middleware(MetricsMiddleware)
 
 # Configuration / Конфигурация
-TARGET_SERVER = str(SERVER_CONFIG["target_server"])
-TIMEOUT = float(SERVER_CONFIG["timeout"])
-STATIC_ROOT = Path(
-    SERVER_CONFIG["static_root"]
+TARGET_SERVER: str = str(SERVER_CONFIG["target_server"])
+TIMEOUT: float = float(SERVER_CONFIG["timeout"])
+STATIC_ROOT: Path = Path(
+    str(SERVER_CONFIG["static_root"])
 )  # Same as Apache DocumentRoot / Как в Apache DocumentRoot
 
 # Mount static files with cache headers / Подключение статических файлов с заголовками кэширования
@@ -63,22 +64,22 @@ if STATIC_ROOT.exists():
     logger.info(LOG_STATIC_MOUNTED.format(STATIC_ROOT))
 
 
-async def proxy_request(request: Request, path: str = ""):
+async def proxy_request(request: Request, path: str = "") -> Response:
     """Proxy request to backend application / Проксирование запроса к бэкенд приложению"""
     try:
         # Build target URL / Создание целевого URL
         if path:
-            target_url = f"{TARGET_SERVER}/{path}"
+            target_url: str = f"{TARGET_SERVER}/{path}"
         else:
-            target_url = TARGET_SERVER
+            target_url: str = TARGET_SERVER
 
         # Prepare headers / Подготовка заголовков
-        headers = dict(request.headers)
+        headers: Dict[str, str] = dict(request.headers)
         _ = headers.pop("host", None)
         _ = headers.pop("content-length", None)
 
         # Read request body / Чтение тела запроса
-        body = await request.body()
+        body: bytes = await request.body()
 
         # Make request to target server / Выполнение запроса к целевому серверу
         async with httpx.AsyncClient(timeout=TIMEOUT) as client:
@@ -91,10 +92,10 @@ async def proxy_request(request: Request, path: str = ""):
             )
 
             # Return response from target server / Возврат ответа от целевого сервера
-            response_headers = dict(response.headers)
+            response_headers: Dict[str, str] = dict(response.headers)
             _ = response_headers.pop("content-length", None)
 
-            content = response.content
+            content: bytes = response.content
             if response.headers.get("content-type", "").startswith("application/json"):
                 try:
                     import json
@@ -123,12 +124,12 @@ async def proxy_request(request: Request, path: str = ""):
 
 # Serve static files directly (like Apache) / Обслуживание статических файлов напрямую (как в Apache)
 @app.get("/{filename:path}")
-async def serve_static_files(request: Request, filename: str = ""):
+async def serve_static_files(request: Request, filename: str = "") -> Response:
     """Serve static files directly from DocumentRoot / Обслуживание статических файлов из DocumentRoot"""
     if not filename:
         filename = "index.html"
 
-    file_path = Path(STATIC_ROOT) / filename
+    file_path: Path = Path(STATIC_ROOT) / filename
 
     # Check if file exists and serve it / Проверка существования файла и его обслуживание
     if Path(file_path).exists() and Path(file_path).is_file():
@@ -142,24 +143,24 @@ async def serve_static_files(request: Request, filename: str = ""):
 async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> Response:
     """Serve file with ETag and Range request support / Обслуживание файла с поддержкой ETag и Range запросов"""
     # Get file stats
-    stat = file_path.stat()
-    file_size = stat.st_size
-    last_modified = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
+    stat: Any = file_path.stat()
+    file_size: int = stat.st_size
+    last_modified: datetime = datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc)
 
     # Generate ETag from file content hash and modification time
-    etag_content = f"{file_path.name}-{stat.st_mtime}-{file_size}"
-    etag = hashlib.md5(etag_content.encode()).hexdigest()
+    etag_content: str = f"{file_path.name}-{stat.st_mtime}-{file_size}"
+    etag: str = hashlib.md5(etag_content.encode()).hexdigest()
 
     # Check If-None-Match header for cache validation
-    if_none_match = request.headers.get("if-none-match")
+    if_none_match: str | None = request.headers.get("if-none-match")
     if if_none_match and if_none_match == etag:
         return Response(status_code=304)
 
     # Check If-Modified-Since header
-    if_modified_since = request.headers.get("if-modified-since")
+    if_modified_since: str | None = request.headers.get("if-modified-since")
     if if_modified_since:
         try:
-            if_modified_since_dt = datetime.strptime(
+            if_modified_since_dt: datetime = datetime.strptime(
                 if_modified_since, "%a, %d %b %Y %H:%M:%S GMT"
             )
             if last_modified <= if_modified_since_dt.replace(tzinfo=timezone.utc):
@@ -168,32 +169,32 @@ async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> R
             pass
 
     # Handle Range requests
-    range_header = request.headers.get("range")
+    range_header: str | None = request.headers.get("range")
     if range_header and range_header.startswith("bytes="):
         try:
             # Parse range header: bytes=0-499, 500-999, etc.
-            range_spec = range_header[6:]  # Remove "bytes="
-            ranges = []
+            range_spec: str = range_header[6:]  # Remove "bytes="
+            ranges: list = []
 
             for range_part in range_spec.split(","):
                 if "-" in range_part:
-                    start_end = range_part.split("-")
+                    start_end: list = range_part.split("-")
                     if len(start_end) == 2:
-                        start = int(start_end[0]) if start_end[0] else 0
-                        end = int(start_end[1]) if start_end[1] else file_size - 1
+                        start: int = int(start_end[0]) if start_end[0] else 0
+                        end: int = int(start_end[1]) if start_end[1] else file_size - 1
                         ranges.append((start, min(end, file_size - 1)))
 
             if ranges:
                 # For now, handle single range (most common case)
                 start, end = ranges[0]
-                content_length = end - start + 1
+                content_length: int = end - start + 1
 
                 # Read file chunk
                 with open(file_path, "rb") as f:
                     _ = f.seek(start)
-                    content = f.read(content_length)
+                    content: bytes = f.read(content_length)
 
-                headers = {
+                headers: Dict[str, str] = {
                     "content-type": "application/octet-stream",
                     "content-length": str(content_length),
                     "content-range": f"bytes {start}-{end}/{file_size}",
@@ -215,7 +216,7 @@ async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> R
             pass
 
     # Serve full file with ETag and caching headers
-    headers = {
+    headers: Dict[str, str] = {
         "Accept-Ranges": "bytes",
         "ETag": etag,
         "Last-Modified": last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT"),
@@ -230,7 +231,7 @@ async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> R
 
 # API routes that should always proxy to backend / API маршруты, которые всегда проксируются к бэкенду
 @app.api_route("/api/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-async def proxy_api_routes(request: Request, path: str = ""):
+async def proxy_api_routes(request: Request, path: str = "") -> Response:
     """Proxy API routes to backend / Проксирование API маршрутов к бэкенду"""
     logger.info(
         LOG_PROXYING_API.format(request.method, request.url, TARGET_SERVER, path)
@@ -239,7 +240,7 @@ async def proxy_api_routes(request: Request, path: str = ""):
 
 
 @app.api_route("/query/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
-async def proxy_query_routes(request: Request, path: str = ""):
+async def proxy_query_routes(request: Request, path: str = "") -> Response:
     """Proxy query routes to backend / Проксирование query маршрутов к бэкенду"""
     logger.info(
         LOG_PROXYING_QUERY.format(request.method, request.url, TARGET_SERVER, path)
@@ -249,10 +250,10 @@ async def proxy_query_routes(request: Request, path: str = ""):
 
 # Health check endpoint / Эндпоинт проверки состояния
 @app.get("/health")
-async def health_check():
+async def health_check() -> Dict[str, Any]:
     """Health check endpoint / Эндпоинт проверки состояния"""
-    response = API_HEALTH_RESPONSE.copy()
-    features = response["features"].copy()
+    response: Dict[str, Any] = API_HEALTH_RESPONSE.copy()
+    features: Dict[str, Any] = response["features"].copy()
     features["static_serving"] = str(STATIC_ROOT.exists())
     features["proxy_enabled"] = FEATURES["api_proxy_enabled"]
     features["document_root"] = str(STATIC_ROOT)
@@ -270,10 +271,10 @@ async def health_check():
 
 # Server information / Информация о сервере
 @app.get("/")
-async def server_info():
+async def server_info() -> Dict[str, Any]:
     """Server information page / Страница информации о сервере"""
-    response = API_SERVER_INFO.copy()
-    config = response["config"].copy()
+    response: Dict[str, Any] = API_SERVER_INFO.copy()
+    config: Dict[str, Any] = response["config"].copy()
     config["static_root"] = str(STATIC_ROOT)
     config["backend_server"] = TARGET_SERVER
     config["ssl_enabled"] = SERVER_CONFIG["ssl_enabled"]
@@ -285,35 +286,35 @@ async def server_info():
 
 # Security statistics endpoint / Эндпоинт статистики безопасности
 @app.get("/security/stats")
-async def security_stats():
+async def security_stats() -> Dict[str, Any]:
     """Security statistics endpoint / Эндпоинт статистики безопасности"""
     return security_manager.get_security_stats()
 
 
 # Attack monitoring endpoint / Эндпоинт мониторинга атак
 @app.get("/monitoring/stats")
-async def monitoring_stats():
+async def monitoring_stats() -> Dict[str, Any]:
     """Attack monitoring statistics / Статистика мониторинга атак"""
     return attack_monitor.get_monitoring_stats()
 
 
 # Attack analysis endpoint / Эндпоинт анализа атак
 @app.get("/monitoring/analysis")
-async def attack_analysis(time_window_hours: int = 24):
+async def attack_analysis(time_window_hours: int = 24) -> Dict[str, Any]:
     """Attack pattern analysis / Анализ паттернов атак"""
     return attack_monitor.analyze_attack_patterns(time_window_hours)
 
 
 # Prometheus metrics endpoint / Эндпоинт метрик Prometheus
 @app.get("/metrics")
-async def metrics():
+async def metrics() -> Response:
     """Prometheus metrics endpoint / Эндпоинт метрик Prometheus"""
     return metrics_endpoint()
 
 
 # High threat IPs endpoint / Эндпоинт IP с высокими угрозами
 @app.get("/monitoring/high-threat-ips")
-async def high_threat_ips(threshold: int = None):
+async def high_threat_ips(threshold: int | None = None) -> Dict[str, Any]:
     """Get high threat IP addresses / Получить IP-адреса с высокими угрозами"""
     return attack_monitor.get_high_threat_ips(threshold)
 

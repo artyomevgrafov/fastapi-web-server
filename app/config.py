@@ -4,7 +4,7 @@ Configuration module using Pydantic Settings with environment variables support
 """
 
 import os
-from typing import Dict, Set, List, Optional
+from typing import Dict, Set, List, Optional, Any
 from pathlib import Path
 from pydantic import Field, validator
 from pydantic_settings import BaseSettings
@@ -48,7 +48,7 @@ class SecurityConfig(BaseSettings):
     enable_proxy_blocking: bool = Field(default=True)
     enable_bot_protection: bool = Field(default=True)
 
-    model_config = {
+    model_config: Dict[str, Any] = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
@@ -79,20 +79,20 @@ class ServerConfig(BaseSettings):
     brotli_enabled: bool = Field(default=False)
 
     @validator("static_root", pre=True)
-    def validate_static_root(cls, v):
+    def validate_static_root(cls, v: Any) -> Path:
         """Validate static root path / Проверка пути к статическим файлам"""
         if isinstance(v, str):
             return Path(v)
         return v
 
     @validator("ssl_cert_file", "ssl_key_file", pre=True)
-    def validate_ssl_paths(cls, v):
+    def validate_ssl_paths(cls, v: Any) -> Optional[Path]:
         """Validate SSL file paths / Проверка путей к SSL файлам"""
         if v and isinstance(v, str):
             return Path(v)
         return v
 
-    model_config = {
+    model_config: Dict[str, Any] = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
@@ -110,13 +110,13 @@ class LoggingConfig(BaseSettings):
     backup_count: int = Field(default=5)
 
     @validator("log_dir", pre=True)
-    def validate_log_dir(cls, v):
+    def validate_log_dir(cls, v: Any) -> Path:
         """Validate log directory path / Проверка пути к директории логов"""
         if isinstance(v, str):
             return Path(v)
         return v
 
-    model_config = {
+    model_config: Dict[str, Any] = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
@@ -137,7 +137,7 @@ class FeaturesConfig(BaseSettings):
     http2_enabled: bool = Field(default=True)
     gzip_enabled: bool = Field(default=True)
 
-    model_config = {
+    model_config: Dict[str, Any] = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": False,
@@ -145,14 +145,14 @@ class FeaturesConfig(BaseSettings):
 
 
 # Global configuration instances / Глобальные экземпляры конфигурации
-security_config = SecurityConfig()
-server_config = ServerConfig()
-logging_config = LoggingConfig()
-features_config = FeaturesConfig()
+security_config: SecurityConfig = SecurityConfig()
+server_config: ServerConfig = ServerConfig()
+logging_config: LoggingConfig = LoggingConfig()
+features_config: FeaturesConfig = FeaturesConfig()
 
 
 # Suspicious patterns (not environment-based) / Подозрительные паттерны (не на основе окружения)
-SUSPICIOUS_PATTERNS = {
+SUSPICIOUS_PATTERNS: Dict[str, Set[str]] = {
     # Common attack paths / Общие пути атак
     "paths": {
         ".env",
@@ -268,14 +268,14 @@ SUSPICIOUS_PATTERNS = {
 MALICIOUS_RANGES: List[str] = []
 
 # Whitelist settings / Настройки белого списка
-WHITELIST = {
+WHITELIST: Dict[str, Any] = {
     "enabled": False,
     "ips": set(),  # Add trusted IPs here / Добавьте доверенные IP-адреса здесь
     "user_agents": set(),  # Add trusted user agents here / Добавьте доверенные user agents здесь
 }
 
 # Allowed search engine bots / Разрешенные поисковые боты
-ALLOWED_BOTS = {
+ALLOWED_BOTS: Set[str] = {
     "googlebot",
     "bingbot",
     "slurp",
@@ -288,7 +288,7 @@ ALLOWED_BOTS = {
 }
 
 
-def get_config() -> Dict:
+def get_config() -> Dict[str, Any]:
     """
     Get complete configuration as dictionary / Получить полную конфигурацию в виде словаря
     """
@@ -304,7 +304,7 @@ def get_config() -> Dict:
     }
 
 
-def update_config_from_env():
+def update_config_from_env() -> None:
     """
     Reload configuration from environment variables / Перезагрузить конфигурацию из переменных окружения
     """
@@ -316,7 +316,7 @@ def update_config_from_env():
 
 
 # Backward compatibility aliases / Псевдонимы для обратной совместимости
-SECURITY_CONFIG = security_config.model_dump()
-SERVER_CONFIG = server_config.model_dump()
-LOGGING_CONFIG = logging_config.model_dump()
-FEATURES = features_config.model_dump()
+SECURITY_CONFIG: Dict[str, Any] = security_config.model_dump()
+SERVER_CONFIG: Dict[str, Any] = server_config.model_dump()
+LOGGING_CONFIG: Dict[str, Any] = logging_config.model_dump()
+FEATURES: Dict[str, Any] = features_config.model_dump()
