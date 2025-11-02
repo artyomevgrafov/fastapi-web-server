@@ -149,9 +149,9 @@ def main():
     # Start server
     try:
         if uvicorn_config.get("reload"):
-            uvicorn.run("app.main:app", **uvicorn_config)  # type: ignore
+            uvicorn.run("app.main:app", **uvicorn_config)
         else:
-            uvicorn.run(app, **uvicorn_config)  # type: ignore
+            uvicorn.run(app, **uvicorn_config)
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
     except Exception as e:

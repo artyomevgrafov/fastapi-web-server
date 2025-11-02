@@ -8,6 +8,7 @@ import os
 import sys
 import uvicorn
 from pathlib import Path
+from typing import TypedDict, Union
 
 # Import message constants / Импорт констант сообщений
 from app.messages import (
@@ -134,9 +135,21 @@ def check_ssl_certificates():
     return True
 
 
-def build_uvicorn_config(config) -> dict[str, str | int | bool]:
+class UvicornConfig(TypedDict, total=False):
+    host: str
+    port: int
+    reload: bool
+    log_level: str
+    access_log: bool
+    ssl_certfile: Union[str, Path]
+    ssl_keyfile: Union[str, Path]
+    ssl_keyfile_password: Union[str, Path]
+    ssl_ca_certs: Union[str, Path]
+
+
+def build_uvicorn_config(config) -> UvicornConfig:
     """Build uvicorn configuration / Создание конфигурации uvicorn"""
-    uvicorn_config: dict[str, str | int | bool] = {
+    uvicorn_config: UvicornConfig = {
         "host": config.HOST,
         "port": config.PORT,
         "reload": config.RELOAD,
@@ -228,9 +241,9 @@ def main():
         print("-" * 70)
 
         if uvicorn_config.get("reload"):
-            uvicorn.run("app.main:app", **uvicorn_config)  # type: ignore[arg-type]
+            uvicorn.run("app.main:app", **uvicorn_config)
         else:
-            uvicorn.run(app, **uvicorn_config)  # type: ignore[arg-type]
+            uvicorn.run(app, **uvicorn_config)
     except KeyboardInterrupt:
         print("\n" + SERVER_STOPPED)
     except Exception as e:

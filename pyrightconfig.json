@@ -23,7 +23,8 @@
     "generate_benchmark_report.py",
     "run_benchmarks.py",
     "start_*.py",
-    "config_*.py"
+    "config_*.py",
+    "!start_hypercorn.py"
   ],
   "pythonVersion": "3.11",
   "pythonPlatform": "Windows",
