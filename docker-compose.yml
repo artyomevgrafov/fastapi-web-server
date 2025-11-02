@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  fastapi-server:
+    build: .
+    ports:
+      - "80:8080"
+      - "443:443"
+    environment:
+      - TARGET_SERVER=http://backend:8097
+      - STATIC_ROOT=/app/static
+      - SSL_ENABLED=false
+    volumes:
+      - ./static:/app/static
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Example backend service
+  backend:
+    image: nginx:alpine
+    ports:
+      - "8097:80"
+    volumes:
+      - ./backend-static:/usr/share/nginx/html
+    restart: unless-stopped
