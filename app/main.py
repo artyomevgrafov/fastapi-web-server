@@ -7,6 +7,7 @@ import logging
 
 from .security import security_manager, setup_security
 from .monitoring import attack_monitor
+from .middleware import setup_production_middleware
 from .config import SERVER_CONFIG, FEATURES
 from .messages import (
     SERVER_TITLE,
@@ -36,6 +37,9 @@ app = FastAPI(
 # Setup security middleware / Настройка промежуточного ПО безопасности
 setup_security(app)
 
+# Setup production middleware / Настройка производственного промежуточного ПО
+setup_production_middleware(app)
+
 # Configuration / Конфигурация
 TARGET_SERVER = str(SERVER_CONFIG["target_server"])
 TIMEOUT = float(SERVER_CONFIG["timeout"])
@@ -43,9 +47,11 @@ STATIC_ROOT = Path(
     SERVER_CONFIG["static_root"]
 )  # Same as Apache DocumentRoot / Как в Apache DocumentRoot
 
-# Mount static files (like Apache DocumentRoot) / Подключение статических файлов (как в Apache DocumentRoot)
+# Mount static files with cache headers / Подключение статических файлов с заголовками кэширования
 if STATIC_ROOT.exists():
-    app.mount("/static", StaticFiles(directory=str(STATIC_ROOT)), name="static")
+    app.mount(
+        "/static", StaticFiles(directory=str(STATIC_ROOT), html=True), name="static"
+    )
     logger.info(LOG_STATIC_MOUNTED.format(STATIC_ROOT))
 
 

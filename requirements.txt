@@ -9,3 +9,35 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 watchfiles==0.21.0
 click==8.1.7
+
+# Production dependencies
+uvloop==0.19.0
+httptools==0.6.1
+psutil==5.9.6
+gunicorn==21.2.0
+hypercorn==0.16.0
+h11==0.14.0
+h2==4.1.0
+hpack==4.0.0
+priority==2.0.0
+
+# Security & Monitoring
+bandit==1.7.5
+safety==2.3.5
+pip-audit==2.6.1
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+black==23.11.0
+ruff==0.1.6
+mypy==1.7.1
+pre-commit==3.5.0
+
+# Optional: For advanced features
+brotli==1.1.0
+python-jose==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+cryptography==41.0.7
