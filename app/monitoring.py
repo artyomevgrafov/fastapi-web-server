@@ -157,7 +157,9 @@ class AttackMonitor:
         ):
             self._trigger_alert(attack_entry)
 
-    def log_blocked_request(self, client_ip: str, reason: str, request: Request = None):
+    def log_blocked_request(
+        self, client_ip: str, reason: str, request: Request | None = None
+    ):
         """
         Log a blocked request / Записать заблокированный запрос
         """
@@ -280,14 +282,11 @@ class AttackMonitor:
 
         logger.critical(alert_message)
 
-    def analyze_attack_patterns(
-        self, time_window_hours: int = 24
-    ) -> Dict[str, Union[int, Dict[str, int]]]:
+    def analyze_attack_patterns(self, time_window_hours: int = 24) -> Dict[str, Any]:
         """
         Analyze attack patterns over time window / Проанализировать паттерны атак за временное окно
         """
         cutoff_time = datetime.now() - timedelta(hours=time_window_hours)
-
         recent_attacks = [
             attack
             for attack in self.recent_attacks
@@ -295,7 +294,6 @@ class AttackMonitor:
         ]
 
         analysis = {
-            "time_window_hours": time_window_hours,
             "total_attacks": len(recent_attacks),
             "attack_types": defaultdict(int),
             "top_attackers": defaultdict(int),
@@ -306,14 +304,19 @@ class AttackMonitor:
         for attack in recent_attacks:
             if "attack_type" in attack:
                 analysis["attack_types"][attack["attack_type"]] += 1
-            analysis["top_attackers"][attack["client_ip"]] += 1
-            analysis["threat_levels"][attack["threat_level"]] += 1
+            if "client_ip" in attack:
+                analysis["top_attackers"][attack["client_ip"]] += 1
+            if "threat_level" in attack:
+                analysis["threat_levels"][attack["threat_level"]] += 1
 
             # Extract path from URL / Извлечь путь из URL
-            path = attack["url"].split("?")[
-                0
-            ]  # Remove query parameters / Удалить параметры запроса
-            analysis["most_targeted_paths"][path] += 1
+            if "url" in attack:
+                url_parts = attack["url"].split("?")
+                if url_parts:  # Check if split returned any parts
+                    path = url_parts[
+                        0
+                    ]  # Remove query parameters / Удалить параметры запроса
+                    analysis["most_targeted_paths"][path] += 1
 
         # Convert defaultdict to regular dict for JSON serialization
         analysis["attack_types"] = dict(analysis["attack_types"])
