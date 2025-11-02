@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 
 # Prometheus metrics (will be initialized after imports)
-REQUEST_COUNT = None
-REQUEST_DURATION = None
-ACTIVE_REQUESTS = None
-SECURITY_BLOCKED_REQUESTS = None
-ATTACK_DETECTED = None
+request_count = None
+request_duration = None
+active_requests = None
+security_blocked_requests = None
+attack_detected = None
 
 
 class AttackMonitor:
@@ -293,7 +293,7 @@ class AttackMonitor:
             if datetime.fromisoformat(attack["timestamp"]) > cutoff_time
         ]
 
-        analysis = {
+        analysis: Dict[str, Any] = {
             "total_attacks": len(recent_attacks),
             "attack_types": defaultdict(int),
             "top_attackers": defaultdict(int),
@@ -319,10 +319,10 @@ class AttackMonitor:
                     analysis["most_targeted_paths"][path] += 1
 
         # Convert defaultdict to regular dict for JSON serialization
-        analysis["attack_types"] = dict(analysis["attack_types"])
-        analysis["top_attackers"] = dict(analysis["top_attackers"])
-        analysis["most_targeted_paths"] = dict(analysis["most_targeted_paths"])
-        analysis["threat_levels"] = dict(analysis["threat_levels"])
+        analysis["attack_types"] = dict(analysis["attack_types"])  # type: ignore
+        analysis["top_attackers"] = dict(analysis["top_attackers"])  # type: ignore
+        analysis["most_targeted_paths"] = dict(analysis["most_targeted_paths"])  # type: ignore
+        analysis["threat_levels"] = dict(analysis["threat_levels"])  # type: ignore
 
         return analysis
 
@@ -403,18 +403,17 @@ attack_monitor = AttackMonitor()
 def metrics_endpoint():
     """Prometheus metrics endpoint"""
     try:
-        try:
-            from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
-        except ImportError:
-            # Fallback if prometheus_client is not available
-            CONTENT_TYPE_LATEST = "text/plain"
+        from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
-            def generate_latest(registry):  # type: ignore
-                return b"Prometheus metrics not available"
-
-        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+        return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)  # type: ignore
     except ImportError:
-        return Response("Prometheus metrics not available", status_code=501)
+        # Fallback if prometheus_client is not available
+        content_type_latest = "text/plain"
+
+        def generate_latest(registry=None):  # type: ignore
+            return b"Prometheus metrics not available"
+
+        return Response(generate_latest(), media_type=content_type_latest)  # type: ignore
 
 
 class MetricsMiddleware:
@@ -430,53 +429,58 @@ class MetricsMiddleware:
             try:
                 from prometheus_client import Counter, Histogram, Gauge
             except ImportError:
-                # Fallback if prometheus_client is not available
+                # Mock metrics if prometheus_client is not available
                 class MockMetric:
+                    def __init__(self, *args, **kwargs):  # type: ignore
+                        pass
+
                     def labels(self, **kwargs):  # type: ignore
                         return self
 
-                    def inc(self, amount=1):  # type: ignore
+                    def inc(self, amount: int = 1):  # type: ignore
                         pass
 
-                    def dec(self, amount=1):  # type: ignore
+                    def dec(self, amount: int = 1):  # type: ignore
                         pass
 
-                    def observe(self, amount):  # type: ignore
+                    def observe(self, amount: float):  # type: ignore
                         pass
 
-                Counter = Histogram = Gauge = MockMetric  # type: ignore
+                Counter = MockMetric  # type: ignore
+                Histogram = MockMetric  # type: ignore
+                Gauge = MockMetric  # type: ignore
 
             global \
-                REQUEST_COUNT, \
-                REQUEST_DURATION, \
-                ACTIVE_REQUESTS, \
-                SECURITY_BLOCKED_REQUESTS, \
-                ATTACK_DETECTED
+                request_count, \
+                request_duration, \
+                active_requests, \
+                security_blocked_requests, \
+                attack_detected
 
-            if REQUEST_COUNT is None:
+            if request_count is None:
                 global \
-                    REQUEST_COUNT, \
-                    REQUEST_DURATION, \
-                    ACTIVE_REQUESTS, \
-                    SECURITY_BLOCKED_REQUESTS, \
-                    ATTACK_DETECTED
-                REQUEST_COUNT = Counter(
+                    request_count, \
+                    request_duration, \
+                    active_requests, \
+                    security_blocked_requests, \
+                    attack_detected
+                request_count = Counter(
                     "http_requests_total",
                     "Total HTTP requests",
                     ["method", "endpoint", "status_code"],
                 )
-                REQUEST_DURATION = Histogram(
+                request_duration = Histogram(
                     "http_request_duration_seconds",
                     "HTTP request duration in seconds",
                     ["method", "endpoint"],
                 )
-                ACTIVE_REQUESTS = Gauge("http_requests_active", "Active HTTP requests")
-                SECURITY_BLOCKED_REQUESTS = Counter(
+                active_requests = Gauge("http_requests_active", "Active HTTP requests")
+                security_blocked_requests = Counter(
                     "security_requests_blocked_total",
                     "Total requests blocked by security",
                     ["block_type"],
                 )
-                ATTACK_DETECTED = Counter(
+                attack_detected = Counter(
                     "security_attacks_detected_total",
                     "Total security attacks detected",
                     ["attack_type"],
@@ -499,13 +503,13 @@ class MetricsMiddleware:
         if path == "/metrics":
             return await self.app(scope, receive, send)
 
-        if ACTIVE_REQUESTS:
-            ACTIVE_REQUESTS.inc()
+        if active_requests:
+            active_requests.inc()
 
         async def send_wrapper(message: Dict[str, Any]):
-            if message["type"] == "http.response.start" and REQUEST_COUNT:
+            if message["type"] == "http.response.start" and request_count:
                 status_code = message["status"]
-                REQUEST_COUNT.labels(
+                request_count.labels(
                     method=method, endpoint=path, status_code=status_code
                 ).inc()
             await send(message)
@@ -513,9 +517,9 @@ class MetricsMiddleware:
         try:
             await self.app(scope, receive, send_wrapper)
         finally:
-            if ACTIVE_REQUESTS:
-                ACTIVE_REQUESTS.dec()
-            if REQUEST_DURATION:
-                REQUEST_DURATION.labels(method=method, endpoint=path).observe(
+            if active_requests:
+                active_requests.dec()
+            if request_duration:
+                request_duration.labels(method=method, endpoint=path).observe(
                     time.time() - start_time
                 )
