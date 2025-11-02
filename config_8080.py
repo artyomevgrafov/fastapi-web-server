@@ -43,7 +43,7 @@ class ServerConfig8080:
     SSL_CA_FILE: str | None = None
 
     @classmethod
-    def get_uvicorn_config(cls) -> dict[str, Union[str, int, bool, None]]:
+    def get_uvicorn_config(cls) -> dict[str, Union[str, int, bool]]:
         """Get uvicorn configuration dictionary"""
         config = {
             "host": cls.HOST,
@@ -61,9 +61,10 @@ class ServerConfig8080:
                 "ssl_keyfile_password": cls.SSL_CERT_PASSWORD,
                 "ssl_ca_certs": cls.SSL_CA_FILE,
             }
-            # Filter out None values
-            ssl_config = {k: v for k, v in ssl_config.items() if v is not None}
-            config.update(ssl_config)
+            # Filter out None values and update config
+            for key, value in ssl_config.items():
+                if value is not None:
+                    config[key] = value
 
         return config
 

@@ -344,7 +344,9 @@ def security_middleware(request: Request, call_next):
     if should_block:
         client_ip = security_manager.get_client_ip(request)
         logger.warning(f"Blocked request from {client_ip}: {reason}")
-        attack_monitor.log_blocked_request(client_ip, reason, request)
+        attack_monitor.log_blocked_request(
+            client_ip, reason or "Unknown threat", request
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
         )

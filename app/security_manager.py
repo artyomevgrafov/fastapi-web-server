@@ -61,7 +61,7 @@ class SecurityManagerCLI:
             print(f"Error getting attack analysis: {e}")
             return {}
 
-    def get_high_threat_ips(self, threshold: int = None) -> List[Dict[str, Any]]:
+    def get_high_threat_ips(self, threshold: int | None = None) -> List[Dict[str, Any]]:
         """Get high threat IPs / Получить IP с высокими угрозами"""
         try:
             url = f"{self.base_url}/monitoring/high-threat-ips"
@@ -174,7 +174,7 @@ class SecurityManagerCLI:
             ):
                 print(f"  - {level}: {count}")
 
-    def show_high_threat_ips(self, threshold: int = None):
+    def show_high_threat_ips(self, threshold: int | None = None):
         """Show high threat IPs / Показать IP с высокими угрозами"""
         print("🚨 High Threat IPs / IP с высокими угрозами")
         print("=" * 50)
