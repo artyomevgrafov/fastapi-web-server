@@ -89,11 +89,11 @@ if not test_file.exists():
 app.mount("/static", StaticFiles(directory=str(STATIC_ROOT), html=True), name="static")
 
 # Prometheus metrics (optional)
-PROMETHEUS_AVAILABLE = False
-REQUEST_COUNT = None
-REQUEST_DURATION = None
-ACTIVE_REQUESTS = None
-CONTENT_TYPE_LATEST = "text/plain"
+_prometheus_available = False
+_request_count = None
+_request_duration = None
+_active_requests = None
+_content_type_latest = "text/plain"
 
 
 def generate_latest(registry=None) -> bytes:
@@ -113,20 +113,20 @@ try:
     import os
 
     if os.environ.get("UVICORN_WORKER_CLASS") != "uvicorn.workers.UvicornWorker":
-        REQUEST_COUNT = Counter(
+        _request_count = Counter(
             "http_requests_total",
             "Total HTTP requests",
             ["method", "endpoint", "status_code"],
         )
-        REQUEST_DURATION = Histogram(
+        _request_duration = Histogram(
             "http_request_duration_seconds",
             "HTTP request duration",
             ["method", "endpoint"],
         )
-        ACTIVE_REQUESTS = Gauge("http_requests_active", "Active HTTP requests")
-        CONTENT_TYPE_LATEST = PROMETHEUS_CONTENT_TYPE
-        generate_latest = prometheus_generate_latest
-        PROMETHEUS_AVAILABLE = True
+        _active_requests = Gauge("http_requests_active", "Active HTTP requests")
+        _content_type_latest = PROMETHEUS_CONTENT_TYPE
+        generate_latest = prometheus_generate_latest  # type: ignore
+        _prometheus_available = True
         logger.info("Prometheus metrics initialized")
     else:
         logger.info("Prometheus metrics disabled in worker process")
@@ -140,8 +140,8 @@ async def security_headers_middleware(request: Request, call_next):
     start_time = time.time()
 
     # Track active requests if Prometheus available
-    if PROMETHEUS_AVAILABLE:
-        ACTIVE_REQUESTS.inc()
+    if _prometheus_available and _active_requests:
+        _active_requests.inc()
 
     try:
         response = await call_next(request)
@@ -183,10 +183,10 @@ async def security_headers_middleware(request: Request, call_next):
 
     finally:
         # Update metrics
-        if PROMETHEUS_AVAILABLE:
-            ACTIVE_REQUESTS.dec()
+        if _prometheus_available and _active_requests and _request_duration:
+            _active_requests.dec()
             duration = time.time() - start_time
-            REQUEST_DURATION.labels(
+            _request_duration.labels(
                 method=request.method, endpoint=request.url.path
             ).observe(duration)
 
@@ -321,8 +321,8 @@ async def proxy_api_routes(request: Request, path: str = ""):
     logger.info(f"Proxying API: {request.method} {request.url}")
 
     # Update metrics if available
-    if PROMETHEUS_AVAILABLE:
-        REQUEST_COUNT.labels(
+    if _prometheus_available and _request_count:
+        _request_count.labels(
             method=request.method,
             endpoint=f"/api/{path}",
             status_code="200",  # Will be updated in middleware
@@ -346,7 +346,7 @@ async def health_check():
             "etag_support": True,
             "range_requests": True,
             "http2_ready": True,
-            "prometheus_metrics": PROMETHEUS_AVAILABLE,
+            "prometheus_metrics": _prometheus_available,
         },
         "config": {
             "host": HOST,
@@ -361,10 +361,10 @@ async def health_check():
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint"""
-    if not PROMETHEUS_AVAILABLE:
+    if not _prometheus_available:
         raise HTTPException(status_code=501, detail="Prometheus metrics not available")
 
-    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
+    return Response(generate_latest(), media_type=_content_type_latest)
 
 
 @app.get("/")
@@ -415,7 +415,7 @@ def main():
         print("  • Security Headers (HSTS, CSP, X-Frame-Options)")
         print(
             "  • Prometheus Metrics"
-            + (" ✅" if PROMETHEUS_AVAILABLE else " ❌ (install prometheus-client)")
+            + (" ✅" if _prometheus_available else " ❌ (install prometheus-client)")
         )
         print("  • Health Monitoring")
         print("  • Docker & Container Ready")
@@ -426,7 +426,7 @@ def main():
         print("  Docs:      http://localhost:8080/docs")
         print(
             "  Metrics:   http://localhost:8080/metrics"
-            + (" ✅" if PROMETHEUS_AVAILABLE else "")
+            + (" ✅" if _prometheus_available else "")
         )
         print("")
         print(

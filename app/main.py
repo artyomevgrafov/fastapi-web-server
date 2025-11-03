@@ -14,6 +14,7 @@ from .monitoring import MetricsMiddleware, metrics_endpoint
 from .security import security_manager, setup_security
 from .monitoring import attack_monitor
 from .middleware import setup_production_middleware
+from .enhanced_middleware_simple import setup_enhanced_middleware_simple
 from .config import SERVER_CONFIG, FEATURES
 from .messages import (
     SERVER_TITLE,
@@ -43,8 +44,8 @@ app: FastAPI = FastAPI(
 # Setup security middleware / Настройка промежуточного ПО безопасности
 setup_security(app)
 
-# Setup production middleware / Настройка производственного промежуточного ПО
-_ = setup_production_middleware(app)
+# Setup enhanced middleware with modern features / Настройка улучшенного промежуточного ПО
+_ = setup_enhanced_middleware_simple(app)
 
 # Add Prometheus metrics middleware
 # app.add_middleware(MetricsMiddleware)  # Temporarily disabled due to type issues
@@ -282,6 +283,62 @@ async def server_info() -> Dict[str, Any]:
     config["timeout"] = str(SERVER_CONFIG["timeout"])
     response["config"] = config
     return response
+
+
+# Test endpoint for enhanced middleware features / Тестовый эндпоинт для проверки улучшенного middleware
+@app.get("/test-middleware")
+async def test_middleware_features(request: Request) -> Dict[str, Any]:
+    """Test endpoint to verify enhanced middleware functionality / Тестовый эндпоинт для проверки функциональности улучшенного middleware"""
+    test_data = {
+        "message": "Enhanced Middleware Test",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "features": {
+            "compression": "Brotli + GZip",
+            "security_headers": "HSTS, CSP, Permissions-Policy",
+            "caching": "ETag, Cache-Control, Accept-Ranges",
+            "performance": "X-Process-Time, X-Request-ID",
+        },
+        "request_info": {
+            "method": request.method,
+            "url": str(request.url),
+            "headers": dict(request.headers),
+            "client_ip": request.client.host if request.client else "unknown",
+        },
+    }
+    return test_data
+
+
+# Large content test endpoint for compression testing / Эндпоинт с большим контентом для тестирования сжатия
+@app.get("/test-compression")
+async def test_compression() -> Dict[str, Any]:
+    """Large content endpoint to test Brotli and GZip compression / Эндпоинт с большим контентом для тестирования сжатия Brotli и GZip"""
+    # Generate large JSON content to test compression
+    large_data = {
+        "message": "Compression Test - Large Content",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "items": [],
+    }
+
+    # Add many items to make content large enough for compression
+    for i in range(1000):
+        large_data["items"].append(
+            {
+                "id": i,
+                "name": f"Item {i}",
+                "description": f"This is a detailed description for item {i} to make the content larger for compression testing.",
+                "price": i * 10.5,
+                "category": f"Category {i % 10}",
+                "tags": [f"tag{j}" for j in range(5)],
+                "metadata": {
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                    "status": "active" if i % 2 == 0 else "inactive",
+                    "priority": i % 5,
+                },
+            }
+        )
+
+    return large_data
 
 
 # Security statistics endpoint / Эндпоинт статистики безопасности
