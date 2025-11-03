@@ -109,29 +109,10 @@ try:
         CONTENT_TYPE_LATEST as PROMETHEUS_CONTENT_TYPE,
     )
 
-    # Initialize metrics only in main process to avoid duplication
-    import os
-    import multiprocessing
+    # Disable Prometheus metrics in Windows version due to multiprocessing issues
+    _prometheus_available = False
+    logger.info("Prometheus metrics disabled in Windows version")
 
-    # Check if we're in the main process (not a worker process)
-    if multiprocessing.current_process().name == "MainProcess":
-        _request_count = Counter(
-            "http_requests_total",
-            "Total HTTP requests",
-            ["method", "endpoint", "status_code"],
-        )
-        _request_duration = Histogram(
-            "http_request_duration_seconds",
-            "HTTP request duration",
-            ["method", "endpoint"],
-        )
-        _active_requests = Gauge("http_requests_active", "Active HTTP requests")
-        _content_type_latest = PROMETHEUS_CONTENT_TYPE
-        generate_latest = prometheus_generate_latest  # type: ignore
-        _prometheus_available = True
-        logger.info("Prometheus metrics initialized")
-    else:
-        logger.info("Prometheus metrics disabled in worker process")
 except ImportError:
     logger.info("Prometheus client not available, metrics disabled")
 
@@ -386,6 +367,7 @@ async def server_info():
             "Prometheus Metrics & Monitoring",
             "Health Checks & Readiness Probes",
             "Docker & Container Ready",
+            "Windows Compatible (Single Process)",
         ],
         "endpoints": {
             "/": "Server information",
@@ -395,18 +377,18 @@ async def server_info():
             "/api/*": "Proxy to backend API",
             "/*": "Static files with ETag & Range support",
         },
-        "quick_start": "Use hypercorn for HTTP/2: hypercorn start_production_working:app --bind 0.0.0.0:8080 --workers 4",
+        "quick_start": "Use hypercorn for HTTP/2: hypercorn start_production_windows:app --bind 0.0.0.0:8080 --workers 1",
     }
 
 
 def main():
     """Start production server with all features"""
     try:
-        print("🚀 FastAPI Security Proxy - Production Ready")
+        print("🚀 FastAPI Security Proxy - Windows Production Ready")
         print("=" * 50)
         print(f"Host: {HOST}")
         print(f"Port: {PORT}")
-        print(f"Workers: {WORKERS}")
+        print(f"Workers: 1 (Windows compatibility)")
         print(f"Static Files: {STATIC_ROOT}")
         print(f"Backend Proxy: {TARGET_SERVER}")
         print("")
@@ -415,12 +397,9 @@ def main():
         print("  • ETag Caching & Validation")
         print("  • Range Request Support")
         print("  • Security Headers (HSTS, CSP, X-Frame-Options)")
-        print(
-            "  • Prometheus Metrics"
-            + (" ✅" if _prometheus_available else " ❌ (install prometheus-client)")
-        )
+        print("  • Prometheus Metrics" + (" ✅" if _prometheus_available else " ❌"))
         print("  • Health Monitoring")
-        print("  • Docker & Container Ready")
+        print("  • Windows Compatible")
         print("")
         print("🌐 Access Points:")
         print("  Main:      http://localhost:8080")
@@ -432,17 +411,20 @@ def main():
         )
         print("")
         print(
-            "💡 For HTTP/2: hypercorn start_production_working:app --bind 0.0.0.0:8080"
+            "💡 For HTTP/2: hypercorn start_production_windows:app --bind 0.0.0.0:8080"
         )
+
+        print("💡 Windows Mode: Single process (multiprocess not supported on Windows)")
         print("Press Ctrl+C to stop the server")
         print("=" * 50)
 
         # Start with production optimizations
+        # Windows compatibility: use single worker
         uvicorn.run(
-            "start_production_working:app",
+            "start_production_windows:app",
             host=HOST,
             port=PORT,
-            workers=WORKERS,
+            workers=1,  # Single worker for Windows compatibility
             loop="asyncio",
             access_log=True,
             proxy_headers=True,

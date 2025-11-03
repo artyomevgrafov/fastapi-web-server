@@ -174,8 +174,6 @@ SUSPICIOUS_PATTERNS: Dict[str, Set[str]] = {
         "_profiler/phpinfo",
         "web/debug/default/view",
         ".well-known/security.txt",
-        "sitemap.xml",
-        "robots.txt",
         "login",
         "login.action",
         "admin",
@@ -262,8 +260,31 @@ MALICIOUS_RANGES: List[str] = []
 
 # Whitelist settings / Настройки белого списка
 WHITELIST: Dict[str, Any] = {
-    "enabled": False,
-    "ips": set(),  # Add trusted IPs here / Добавьте доверенные IP-адреса здесь
+    "enabled": True,
+    "ips": {
+        "127.0.0.1",
+        "localhost",
+        "::1",
+        "0.0.0.0",
+        "192.168.",
+        "10.",
+        "172.16.",
+        "172.17.",
+        "172.18.",
+        "172.19.",
+        "172.20.",
+        "172.21.",
+        "172.22.",
+        "172.23.",
+        "172.24.",
+        "172.25.",
+        "172.26.",
+        "172.27.",
+        "172.28.",
+        "172.29.",
+        "172.30.",
+        "172.31.",
+    },  # Local and private network IPs / Локальные и частные сетевые IP-адреса
     "user_agents": set(),  # Add trusted user agents here / Добавьте доверенные user agents здесь
 }
 

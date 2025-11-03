@@ -10,6 +10,7 @@ from ipaddress import ip_address, IPv4Address
 from collections import defaultdict
 from fastapi import Request, HTTPException, status, FastAPI
 from .monitoring import attack_monitor
+from .config import WHITELIST
 
 logger = logging.getLogger(__name__)
 
@@ -151,11 +152,27 @@ class SecurityManager:
             "log_suspicious_activity": True,  # Log suspicious activity / Логировать подозрительную активность
         }
 
+    def is_ip_whitelisted(self, ip: str) -> bool:
+        """
+        Check if IP is in whitelist / Проверить, находится ли IP в белом списке
+        """
+        if not WHITELIST["enabled"]:
+            return False
+
+        for whitelist_ip in WHITELIST["ips"]:
+            if ip.startswith(whitelist_ip) or ip == whitelist_ip:
+                return True
+        return False
+
     def is_ip_blocked(self, ip: str) -> bool:
         """
         Check if IP is blocked / Проверить, заблокирован ли IP-адрес
         """
         if not self.config["enable_ip_blocking"]:
+            return False
+
+        # Skip whitelisted IPs / Пропустить IP из белого списка
+        if self.is_ip_whitelisted(ip):
             return False
 
         if ip in self.blocked_ips:
@@ -247,6 +264,10 @@ class SecurityManager:
         Returns (should_block, reason) / Возвращает (блокировать, причина)
         """
         client_ip = self.get_client_ip(request)
+
+        # Skip whitelisted IPs / Пропустить IP из белого списка
+        if self.is_ip_whitelisted(client_ip):
+            return False, None
 
         # Check if IP is already blocked / Проверить, заблокирован ли IP
         if self.is_ip_blocked(client_ip):
