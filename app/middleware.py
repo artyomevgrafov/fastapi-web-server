@@ -118,7 +118,8 @@ class GZipCompressionMiddleware(BaseHTTPMiddleware):
 
         should_compress: bool = any(ct in content_type for ct in compressible_types)
 
-        if should_compress and response.body:
+        # Skip compression for streaming responses
+        if hasattr(response, "body") and should_compress and response.body:
             compressed_body: bytes = gzip.compress(
                 response.body, compresslevel=self.compresslevel
             )
