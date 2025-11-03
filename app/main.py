@@ -128,22 +128,21 @@ async def proxy_request(request: Request, path: str = "") -> Response:
 
 
 # Serve static files directly (like Apache) / Обслуживание статических файлов напрямую (как в Apache)
-# Temporarily disabled for testing / Временно отключено для тестирования
-# @app.get("/{filename:path}")
-# async def serve_static_files(request: Request, filename: str = "") -> Response:
-#     """Serve static files directly from DocumentRoot / Обслуживание статических файлов из DocumentRoot"""
-#     if not filename:
-#         filename = "index.html"
-#
-#     file_path: Path = Path(STATIC_ROOT) / filename
-#
-#     # Check if file exists and serve it / Проверка существования файла и его обслуживание
-#     if Path(file_path).exists() and Path(file_path).is_file():
-#         return await serve_file_with_etag_and_range(request, file_path)
-#
-#     # If file doesn't exist, proxy to backend / Если файл не существует, проксирование к бэкенду
-#     logger.info(FILE_NOT_FOUND.format(filename))
-#     return await proxy_request(request, filename)
+@app.get("/{filename:path}")
+async def serve_static_files(request: Request, filename: str = "") -> Response:
+    """Serve static files directly from DocumentRoot / Обслуживание статических файлов из DocumentRoot"""
+    if not filename:
+        filename = "index.html"
+
+    file_path: Path = Path(STATIC_ROOT) / filename
+
+    # Check if file exists and serve it / Проверка существования файла и его обслуживание
+    if Path(file_path).exists() and Path(file_path).is_file():
+        return await serve_file_with_etag_and_range(request, file_path)
+
+    # If file doesn't exist, proxy to backend / Если файл не существует, проксирование к бэкенду
+    logger.info(FILE_NOT_FOUND.format(filename))
+    return await proxy_request(request, filename)
 
 
 async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> Response:
