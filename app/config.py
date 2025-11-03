@@ -127,7 +127,7 @@ class FeaturesConfig(BaseSettings):
     ip_blocking_enabled: bool = Field(default=True)
     threat_detection_enabled: bool = Field(default=True)
     static_serving_enabled: bool = Field(default=True)
-    api_proxy_enabled: bool = Field(default=True)
+    api_proxy_enabled: bool = Field(default=False)
     ssl_enabled: bool = Field(default=True)
     http2_enabled: bool = Field(default=True)
     gzip_enabled: bool = Field(default=True)

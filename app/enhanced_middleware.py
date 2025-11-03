@@ -3,6 +3,8 @@ Enhanced Middleware for Modern Web Server
 Production-ready middleware with Brotli compression, HTTP/2 optimization, and comprehensive security
 """
 
+from fastapi import FastAPI
+
 import time
 import gzip
 import brotli
@@ -348,7 +350,7 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
         print(f"📊 {method} {path} {status} {duration:.3f}s | UA: {user_agent[:50]}...")
 
 
-def setup_enhanced_middleware(app: ASGIApp) -> None:
+def setup_enhanced_middleware(app: FastAPI) -> None:
     """
     Setup all enhanced middleware for modern web server
     """

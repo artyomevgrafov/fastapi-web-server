@@ -308,32 +308,47 @@ async def test_middleware_features(request: Request) -> Dict[str, Any]:
     return test_data
 
 
+# Compression test endpoint with large content / Эндпоинт тестирования сжатия с большим контентом
 # Large content test endpoint for compression testing / Эндпоинт с большим контентом для тестирования сжатия
 @app.get("/test-compression")
 async def test_compression() -> Dict[str, Any]:
     """Large content endpoint to test Brotli and GZip compression / Эндпоинт с большим контентом для тестирования сжатия Brotli и GZip"""
     # Generate large JSON content to test compression
-    large_data = {
+    large_data: Dict[str, Any] = {
         "message": "Compression Test - Large Content",
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "description": "This is a large JSON response designed specifically to test Brotli and GZip compression functionality. The content includes multiple nested objects and arrays to ensure it's large enough for meaningful compression.",
         "items": [],
+        "metadata": {
+            "compression_test": True,
+            "minimum_size_for_compression": 100,
+            "content_type": "application/json",
+        },
     }
 
     # Add many items to make content large enough for compression
-    for i in range(1000):
+    for i in range(500):
         large_data["items"].append(
             {
                 "id": i,
-                "name": f"Item {i}",
-                "description": f"This is a detailed description for item {i} to make the content larger for compression testing.",
+                "name": f"Test Item {i}",
+                "description": f"This is a detailed description for test item {i} designed to increase the overall content size for compression testing purposes.",
                 "price": i * 10.5,
                 "category": f"Category {i % 10}",
-                "tags": [f"tag{j}" for j in range(5)],
-                "metadata": {
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                    "status": "active" if i % 2 == 0 else "inactive",
-                    "priority": i % 5,
+                "tags": [f"tag{j}" for j in range(10)],
+                "attributes": {
+                    "color": f"color_{i % 5}",
+                    "size": f"size_{i % 3}",
+                    "weight": i * 0.1,
+                    "active": i % 2 == 0,
+                },
+                "nested_data": {
+                    "level1": {
+                        "level2": {
+                            "level3": f"deeply_nested_value_{i}",
+                            "array_data": [f"array_item_{k}" for k in range(5)],
+                        }
+                    }
                 },
             }
         )

@@ -3,6 +3,8 @@ Simplified Enhanced Middleware for Modern Web Server
 Production-ready middleware with Brotli compression and comprehensive security
 """
 
+from fastapi import FastAPI
+
 import time
 import gzip
 import brotli
@@ -23,7 +25,7 @@ class BrotliCompressionMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app: ASGIApp,
-        minimum_size: int = 500,
+        minimum_size: int = 100,
         brotli_quality: int = 4,
         gzip_level: int = 6,
     ) -> None:
@@ -61,17 +63,21 @@ class BrotliCompressionMiddleware(BaseHTTPMiddleware):
 
         response: Response = await call_next(request)
 
-        # Skip if already compressed or streaming
-        if (
-            "content-encoding" in response.headers
-            or not hasattr(response, "body")
-            or not response.body
-        ):
+        # Skip if already compressed
+        if "content-encoding" in response.headers:
+            return response
+
+        # Skip streaming responses and responses without body
+        if not hasattr(response, "body") or not response.body:
             return response
 
         # Check content size
         content_length: Optional[str] = response.headers.get("content-length")
         if content_length and int(content_length) < self.minimum_size:
+            return response
+
+        # Also check actual body size
+        if len(response.body) < self.minimum_size:
             return response
 
         # Check content type
@@ -84,34 +90,40 @@ class BrotliCompressionMiddleware(BaseHTTPMiddleware):
             return response
 
         # Apply compression based on client support
-        original_body: bytes = response.body
-        compressed_body: bytes
-        encoding: str
+        try:
+            original_body: bytes = response.body
+            compressed_body: bytes
+            encoding: str
 
-        if supports_brotli:
-            compressed_body = brotli.compress(
-                original_body, quality=self.brotli_quality
-            )
-            encoding = "br"
-        elif supports_gzip:
-            compressed_body = gzip.compress(
-                original_body, compresslevel=self.gzip_level
-            )
-            encoding = "gzip"
-        else:
+            if supports_brotli:
+                compressed_body = brotli.compress(
+                    original_body, quality=self.brotli_quality
+                )
+                encoding = "br"
+            elif supports_gzip:
+                compressed_body = gzip.compress(
+                    original_body, compresslevel=self.gzip_level
+                )
+                encoding = "gzip"
+            else:
+                return response
+
+            # Only compress if we achieve meaningful compression
+            if len(compressed_body) >= len(original_body):
+                return response
+
+            # Update response with compressed content
+            response.body = compressed_body
+            response.headers["content-encoding"] = encoding
+            response.headers["content-length"] = str(len(compressed_body))
+            response.headers["vary"] = "Accept-Encoding"
+
             return response
 
-        # Only compress if we achieve meaningful compression
-        if len(compressed_body) >= len(original_body):
+        except Exception as e:
+            # If compression fails, return original response
+            print(f"⚠️ Compression failed: {e}")
             return response
-
-        # Update response with compressed content
-        response.body = compressed_body
-        response.headers["content-encoding"] = encoding
-        response.headers["content-length"] = str(len(compressed_body))
-        response.headers["vary"] = "Accept-Encoding"
-
-        return response
 
 
 class ModernSecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -299,7 +311,7 @@ class PerformanceMonitoringMiddleware(BaseHTTPMiddleware):
         print(f"📊 {method} {path} {status} {duration:.3f}s | UA: {user_agent[:50]}...")
 
 
-def setup_enhanced_middleware_simple(app: ASGIApp) -> None:
+def setup_enhanced_middleware_simple(app: FastAPI) -> None:
     """
     Setup simplified enhanced middleware for modern web server
     """
