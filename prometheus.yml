@@ -1,0 +1,72 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    environment: "production"
+    platform: "windows"
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+# A scrape configuration containing exactly one endpoint to scrape:
+scrape_configs:
+  # FastAPI server metrics
+  - job_name: "fastapi"
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: http
+
+    static_configs:
+      - targets: ["localhost:8080"]
+        labels:
+          service: "fastapi-server"
+          environment: "production"
+          platform: "windows"
+          instance: "fastapi-prod-01"
+
+    # Optional: Basic authentication if needed
+    # basic_auth:
+    #   username: "admin"
+    #   password: "password"
+
+    # Optional: TLS configuration
+    # tls_config:
+    #   insecure_skip_verify: true
+
+  # Prometheus self-monitoring
+  - job_name: "prometheus"
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: "prometheus"
+          environment: "monitoring"
+          platform: "windows"
+
+  # Optional: Windows metrics via windows_exporter
+  # - job_name: "windows"
+  #   static_configs:
+  #     - targets: ["localhost:9182"]
+  #   metrics_path: /metrics
+  #   scheme: http
+# Optional: Alerting rules
+# rule_files:
+#   - "alerts.yml"
+
+# Optional: Remote write configuration for long-term storage
+# remote_write:
+#   - url: "http://remote-storage:8086/api/v1/prom/write"
+#     basic_auth:
+#       username: "admin"
+#       password: "password"
