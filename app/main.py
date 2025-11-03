@@ -16,6 +16,7 @@ from .monitoring import attack_monitor
 from .middleware import setup_production_middleware
 from .enhanced_middleware_simple import setup_enhanced_middleware_simple
 from .config import SERVER_CONFIG, FEATURES
+from starlette.middleware.gzip import GZipMiddleware
 from .messages import (
     SERVER_TITLE,
     SERVER_DESCRIPTION,
@@ -46,6 +47,9 @@ setup_security(app)
 
 # Setup enhanced middleware with modern features / Настройка улучшенного промежуточного ПО
 _ = setup_enhanced_middleware_simple(app)
+
+# Add reliable GZip compression for streaming responses with JSON support
+app.add_middleware(GZipMiddleware, minimum_size=100, compresslevel=6)
 
 # Add Prometheus metrics middleware
 # app.add_middleware(MetricsMiddleware)  # Temporarily disabled due to type issues
@@ -124,21 +128,22 @@ async def proxy_request(request: Request, path: str = "") -> Response:
 
 
 # Serve static files directly (like Apache) / Обслуживание статических файлов напрямую (как в Apache)
-@app.get("/{filename:path}")
-async def serve_static_files(request: Request, filename: str = "") -> Response:
-    """Serve static files directly from DocumentRoot / Обслуживание статических файлов из DocumentRoot"""
-    if not filename:
-        filename = "index.html"
-
-    file_path: Path = Path(STATIC_ROOT) / filename
-
-    # Check if file exists and serve it / Проверка существования файла и его обслуживание
-    if Path(file_path).exists() and Path(file_path).is_file():
-        return await serve_file_with_etag_and_range(request, file_path)
-
-    # If file doesn't exist, proxy to backend / Если файл не существует, проксирование к бэкенду
-    logger.info(FILE_NOT_FOUND.format(filename))
-    return await proxy_request(request, filename)
+# Temporarily disabled for testing / Временно отключено для тестирования
+# @app.get("/{filename:path}")
+# async def serve_static_files(request: Request, filename: str = "") -> Response:
+#     """Serve static files directly from DocumentRoot / Обслуживание статических файлов из DocumentRoot"""
+#     if not filename:
+#         filename = "index.html"
+#
+#     file_path: Path = Path(STATIC_ROOT) / filename
+#
+#     # Check if file exists and serve it / Проверка существования файла и его обслуживание
+#     if Path(file_path).exists() and Path(file_path).is_file():
+#         return await serve_file_with_etag_and_range(request, file_path)
+#
+#     # If file doesn't exist, proxy to backend / Если файл не существует, проксирование к бэкенду
+#     logger.info(FILE_NOT_FOUND.format(filename))
+#     return await proxy_request(request, filename)
 
 
 async def serve_file_with_etag_and_range(request: Request, file_path: Path) -> Response:

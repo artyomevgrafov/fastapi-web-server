@@ -25,7 +25,7 @@ class BrotliCompressionMiddleware(BaseHTTPMiddleware):
     def __init__(
         self,
         app: ASGIApp,
-        minimum_size: int = 100,
+        minimum_size: int = 500,
         brotli_quality: int = 4,
         gzip_level: int = 6,
     ) -> None:
@@ -67,19 +67,6 @@ class BrotliCompressionMiddleware(BaseHTTPMiddleware):
         if "content-encoding" in response.headers:
             return response
 
-        # Skip streaming responses and responses without body
-        if not hasattr(response, "body") or not response.body:
-            return response
-
-        # Check content size
-        content_length: Optional[str] = response.headers.get("content-length")
-        if content_length and int(content_length) < self.minimum_size:
-            return response
-
-        # Also check actual body size
-        if len(response.body) < self.minimum_size:
-            return response
-
         # Check content type
         content_type: str = response.headers.get("content-type", "").lower()
         should_compress: bool = any(
@@ -89,41 +76,49 @@ class BrotliCompressionMiddleware(BaseHTTPMiddleware):
         if not should_compress:
             return response
 
-        # Apply compression based on client support
-        try:
+        # For now, use simple approach - only compress if we can access body
+        # In production, consider using starlette.middleware.gzip.GZipMiddleware
+        # and extending it for Brotli support
+        if hasattr(response, "body") and response.body:
             original_body: bytes = response.body
-            compressed_body: bytes
-            encoding: str
 
-            if supports_brotli:
-                compressed_body = brotli.compress(
-                    original_body, quality=self.brotli_quality
-                )
-                encoding = "br"
-            elif supports_gzip:
-                compressed_body = gzip.compress(
-                    original_body, compresslevel=self.gzip_level
-                )
-                encoding = "gzip"
-            else:
+            # Check minimum size
+            if len(original_body) < self.minimum_size:
                 return response
 
-            # Only compress if we achieve meaningful compression
-            if len(compressed_body) >= len(original_body):
+            # Apply compression
+            try:
+                compressed_body: bytes
+                encoding: str
+
+                if supports_brotli:
+                    compressed_body = brotli.compress(
+                        original_body, quality=self.brotli_quality
+                    )
+                    encoding = "br"
+                elif supports_gzip:
+                    compressed_body = gzip.compress(
+                        original_body, compresslevel=self.gzip_level
+                    )
+                    encoding = "gzip"
+                else:
+                    return response
+
+                # Only compress if beneficial
+                if len(compressed_body) >= len(original_body):
+                    return response
+
+                # Update response with compressed content
+                response.body = compressed_body
+                response.headers["content-encoding"] = encoding
+                response.headers["content-length"] = str(len(compressed_body))
+                response.headers["vary"] = "Accept-Encoding"
+
+            except Exception:
+                # If compression fails, return original response
                 return response
 
-            # Update response with compressed content
-            response.body = compressed_body
-            response.headers["content-encoding"] = encoding
-            response.headers["content-length"] = str(len(compressed_body))
-            response.headers["vary"] = "Accept-Encoding"
-
-            return response
-
-        except Exception as e:
-            # If compression fails, return original response
-            print(f"⚠️ Compression failed: {e}")
-            return response
+        return response
 
 
 class ModernSecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -315,8 +310,8 @@ def setup_enhanced_middleware_simple(app: FastAPI) -> None:
     """
     Setup simplified enhanced middleware for modern web server
     """
-    # Compression (Brotli + GZip)
-    app.add_middleware(BrotliCompressionMiddleware)
+    # Compression temporarily disabled for testing
+    # app.add_middleware(BrotliCompressionMiddleware)
 
     # Comprehensive security headers
     app.add_middleware(ModernSecurityHeadersMiddleware)
